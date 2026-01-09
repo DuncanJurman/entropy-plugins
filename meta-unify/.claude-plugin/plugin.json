@@ -1,0 +1,10 @@
+{
+  "name": "meta-unify",
+  "description": "Unified configuration management for Claude Code and Codex. Add MCP servers, skills, hooks, rules, and instructions to both systems simultaneously.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Duncan Jurman"
+  },
+  "keywords": ["configuration", "codex", "mcp", "skills", "hooks", "rules", "dual-config"],
+  "license": "MIT"
+}

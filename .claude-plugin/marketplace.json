@@ -1,0 +1,16 @@
+{
+  "name": "entropy-marketplace",
+  "owner": {
+    "name": "Duncan Jurman"
+  },
+  "metadata": {
+    "description": "Claude Code plugin marketplace by Duncan Jurman"
+  },
+  "plugins": [
+    {
+      "name": "meta-unify",
+      "source": "./meta-unify",
+      "description": "Unified configuration management for Claude Code and Codex"
+    }
+  ]
+}
