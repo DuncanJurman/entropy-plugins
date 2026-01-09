@@ -26,6 +26,7 @@ This skill provides the parsing, translation, and generation logic that powers t
 | Hooks | Event-triggered actions (Claude only) |
 | Rules | Permission and constraint definitions |
 | Instructions | System-wide or project-scoped behavioral guidelines |
+| Plugins | Complete Claude Code plugin scaffolding and generation |
 
 ---
 
@@ -236,6 +237,7 @@ For detailed format specifications, see:
 
 - `references/claude-formats.md` - Complete Claude Code configuration schemas
 - `references/codex-formats.md` - Complete Codex configuration schemas
+- `references/plugin-formats.md` - Claude Code plugin structure and manifest formats
 
 ---
 
@@ -247,6 +249,7 @@ For detailed format specifications, see:
 - `/meta-unify:add-skill` - Creating new skills
 - `/meta-unify:add-hook` - Adding hooks (Claude only)
 - `/meta-unify:add-rule` - Adding permission rules
+- `/meta-unify:add-plugin` - Creating new Claude Code plugins
 - `/meta-unify:sync` - Synchronizing configs between systems
 
 ### Limitations
