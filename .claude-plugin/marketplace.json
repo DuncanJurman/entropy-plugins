@@ -11,6 +11,11 @@
       "name": "meta-unify",
       "source": "./meta-unify",
       "description": "Unified configuration management for Claude Code and Codex"
+    },
+    {
+      "name": "god-ralph",
+      "source": "./god-ralph",
+      "description": "Autonomous development orchestrator combining ephemeral Ralph workers with Beads task tracking"
     }
   ]
 }

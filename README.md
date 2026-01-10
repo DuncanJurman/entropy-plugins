@@ -24,6 +24,17 @@ A Claude Code plugin marketplace by Duncan Jurman.
 
 ---
 
+## Updating Plugins
+
+To get the latest version of plugins:
+
+```bash
+/plugin marketplace update entropy-marketplace
+/plugin update meta-unify@entropy-marketplace
+```
+
+---
+
 ## Available Plugins
 
 ### meta-unify
@@ -67,14 +78,34 @@ Manage MCP servers, skills, hooks, rules, and instructions across both Claude Co
 
 ---
 
-## Updating Plugins
+### god-ralph
 
-To get the latest version of plugins:
+**Autonomous development orchestrator combining ephemeral Ralph workers with Beads task tracking.**
 
-```bash
-/plugin marketplace update entropy-marketplace
-/plugin update meta-unify@entropy-marketplace
-```
+Automates software development by breaking work into granular beads, spawning ephemeral "Ralph" workers to complete each task, running parallel execution on independent work, and automatically verifying merged results.
+
+#### How It Works
+
+1. **Discovery** - Find ready beads via `bd ready`
+2. **Spawn** - Create git worktrees, launch parallel Ralph workers
+3. **Execute** - Each Ralph works on exactly ONE bead until completion
+4. **Merge** - Auto-merge completed branches back to main
+5. **Verify** - Run acceptance criteria, create fix-beads if needed
+
+#### Commands
+
+| Command | Description |
+|---------|-------------|
+| `/god-ralph start` | Start orchestrator (dry-run first) |
+| `/god-ralph plan` | Interactive bead creation wizard |
+| `/god-ralph status` | Show current progress |
+| `/god-ralph stop` | Gracefully stop execution |
+| `/god-ralph <id>` | Run Ralph on a specific bead |
+
+#### Requirements
+
+- Beads CLI (`bd`) installed
+- Git repository initialized
 
 ---
 
