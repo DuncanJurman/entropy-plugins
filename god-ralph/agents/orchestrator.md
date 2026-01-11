@@ -40,26 +40,46 @@ Group beads by file overlap:
 - **No overlap** → Can run in parallel
 - **Overlap detected** → Run sequentially
 
-### Phase 3: Worktree Setup
-For each parallel group:
+### Phase 3: Worktree Setup (Automatic)
+
+The `ensure-worktree.sh` PreToolUse hook handles worktree creation automatically when you call Task with `subagent_type="ralph-worker"`. You do NOT need to run these commands manually - the hook does it for you:
+
 ```bash
-# Create worktree for each Ralph
-git worktree add .worktrees/ralph-<bead-id> -b ralph/<bead-id>
+# Hook automatically runs equivalent of:
+# git worktree add .worktrees/ralph-<bead-id> -b ralph/<bead-id>
 ```
 
 ### Phase 4: Spawn Ralphs (with Worktree Isolation)
 
-**CRITICAL**: Each Ralph MUST run in its own isolated worktree. The `ensure-worktree.sh` PreToolUse hook handles this automatically when you spawn Ralph workers via the Task tool.
+**CRITICAL**: Each Ralph MUST run in its own isolated worktree. You MUST write a spawn queue file BEFORE calling Task, then the `ensure-worktree.sh` PreToolUse hook reads it and sets up the worktree.
 
 For each bead in parallel group:
 
-1. **Spawn Ralph worker via Task tool**
-   The `subagent_type="ralph-worker"` requires explicit worktree context:
+1. **Write spawn queue file FIRST** (REQUIRED before Task call)
+   ```bash
+   # Create the spawn-queue directory if needed
+   mkdir -p .claude/god-ralph/spawn-queue
+
+   # Write queue file for this specific bead
+   cat > .claude/god-ralph/spawn-queue/<bead-id>.json << 'EOF'
+   {
+     "worktree_path": ".worktrees/ralph-<bead-id>",
+     "worktree_policy": "required",
+     "max_iterations": 10,
+     "completion_promise": "BEAD COMPLETE"
+   }
+   EOF
+   ```
+
+2. **Spawn Ralph worker via Task tool**
+   The prompt MUST include `BEAD_ID: <bead-id>` marker for the hook to find it:
    ```
    Task(
      subagent_type="ralph-worker",
      description="Ralph worker for <bead-id>",
      prompt="""
+     BEAD_ID: <bead-id>
+
      You are working on bead: <bead-id>
 
      ## Task
@@ -72,34 +92,34 @@ For each bead in parallel group:
      <full bead spec with acceptance criteria>
 
      When complete, output: <promise>BEAD COMPLETE</promise>
-     """,
-     inputs={
-       "bead_id": "<bead-id>",
-       "worktree_path": ".worktrees/ralph-<bead-id>",
-       "worktree_policy": "required"
-     }
+     """
    )
    ```
 
-   **Worktree Policy Values**:
-   - `"required"` - Must have isolated worktree (ralph-worker)
-   - `"optional"` - May use worktree if available (verification-ralph, scribe)
-   - `"none"` - Works in main repo (bead-farmer)
+   **Spawn Queue Fields**:
+   - `worktree_path` - Path to worktree (use `.worktrees/ralph-<bead-id>`)
+   - `worktree_policy` - "required" for ralph-worker, "optional" for others, "none" to skip
+   - `max_iterations` - Max Ralph iterations before forced exit (default: 10)
+   - `completion_promise` - Text Ralph must include to signal completion
 
-2. **Hook automatically handles**:
+3. **Hook automatically handles**:
+   - Reads spawn queue file for this bead
    - Creates worktree at `.worktrees/ralph-<bead-id>/`
    - Creates branch `ralph/<bead-id>`
+   - Creates per-bead session file at `.claude/god-ralph/sessions/<bead-id>.json`
+   - Creates marker file at `{worktree}/.claude/god-ralph/current-bead`
    - Prepends worktree context to Ralph's prompt
-   - Creates session state file
+   - Removes spawn queue file after setup
 
-3. **Stream output with prefix** `[ralph:<bead-id>]`
+4. **Stream output with prefix** `[ralph:<bead-id>]`
 
-4. **Verify worktree was created**:
+5. **Verify worktree was created**:
    ```bash
    ls -la .worktrees/  # Should show ralph-<bead-id> directories
+   ls -la .claude/god-ralph/sessions/  # Should show <bead-id>.json files
    ```
 
-**Note**: If the hook fails to create a worktree, Ralph will still spawn but will detect the issue and report it. Never proceed with parallel Ralphs if worktrees weren't created - this causes git lock conflicts.
+**Note**: If the hook fails to create a worktree (spawn queue file missing, bead_id not in prompt), the Task call will be denied with an error. Fix the issue and retry.
 
 ### Agent Type Dispatch
 
@@ -119,41 +139,40 @@ The PreToolUse hook uses `subagent_type` to determine if a worktree is needed:
 
 #### Detecting Ralph Completion
 
-The Task tool is asynchronous - spawning a Ralph returns immediately. To detect completion, **poll the session state file**:
+The Task tool is asynchronous - spawning a Ralph returns immediately. To detect completion, **poll the per-bead session file**:
 
 ```bash
-# Poll ralph-session.json for status changes
-# State file location: .claude/god-ralph/ralph-session.json (main repo copy)
+# Poll per-bead session file for status changes
+# State file location: .claude/god-ralph/sessions/<bead-id>.json
 
 # Check if Ralph is still running
-jq -r '.status' .claude/god-ralph/ralph-session.json
-# Returns: "initializing" | "running" | "completed" | "failed"
+jq -r '.status' .claude/god-ralph/sessions/<bead-id>.json
+# Returns: "in_progress" | "completed" | "failed"
 
 # Get current iteration
-jq -r '.iteration' .claude/god-ralph/ralph-session.json
+jq -r '.iteration' .claude/god-ralph/sessions/<bead-id>.json
 
-# Get bead ID
-jq -r '.bead_id' .claude/god-ralph/ralph-session.json
+# List all active sessions
+ls -la .claude/god-ralph/sessions/
 ```
 
-**Polling Pattern**:
+**Polling Pattern for Parallel Ralphs**:
 ```
-LOOP:
-  status = read .claude/god-ralph/ralph-session.json | .status
+LOOP (for each bead-id):
+  status = read .claude/god-ralph/sessions/<bead-id>.json | .status
 
   IF status == "completed":
-    → Proceed to merge
+    → Proceed to merge this bead
   ELIF status == "failed":
     → Handle failure (max iterations reached)
   ELSE:
-    → Ralph still working, wait and check again
+    → Ralph still working, check next bead
 ```
 
 **Status Transitions**:
 ```
-initializing → running (after first iteration)
-running → completed (promise detected)
-running → failed (max iterations reached)
+in_progress → completed (promise detected)
+in_progress → failed (max iterations reached)
 ```
 
 #### Merging and Cleanup
@@ -185,6 +204,19 @@ Repeat from Phase 1 until no ready beads remain.
 
 ## State Management
 
+### Directory Structure
+```
+.claude/god-ralph/
+├── spawn-queue/                  # Per-bead queue files (pre-spawn params)
+│   ├── beads-123.json
+│   └── beads-456.json
+├── sessions/                     # Per-bead session state
+│   ├── beads-123.json
+│   └── beads-456.json
+├── logs/                         # Hook and worker logs
+└── orchestrator-state.json       # Orchestrator's own state
+```
+
 ### Orchestrator State File
 Location: `.claude/god-ralph/orchestrator-state.json`
 
@@ -192,15 +224,7 @@ Location: `.claude/god-ralph/orchestrator-state.json`
 {
   "status": "running",
   "started_at": "2024-01-10T00:00:00Z",
-  "active_ralphs": [
-    {
-      "bead_id": "beads-123",
-      "worktree": ".worktrees/ralph-beads-123",
-      "branch": "ralph/beads-123",
-      "iteration": 5,
-      "max_iterations": 50
-    }
-  ],
+  "active_ralphs": ["beads-123", "beads-456"],
   "completed_beads": [],
   "failed_beads": [],
   "total_iterations": 45,
@@ -208,19 +232,43 @@ Location: `.claude/god-ralph/orchestrator-state.json`
 }
 ```
 
-### Ralph Session State
-Location: `.claude/god-ralph/ralph-session.json` (per-worktree)
+### Ralph Session State (Per-Bead)
+Location: `.claude/god-ralph/sessions/<bead-id>.json`
 
 ```json
 {
   "bead_id": "beads-123",
+  "worktree_path": "/full/path/to/.worktrees/ralph-beads-123",
+  "status": "in_progress",
   "iteration": 1,
-  "max_iterations": 50,
+  "max_iterations": 10,
   "completion_promise": "BEAD COMPLETE",
-  "prompt": "Complete the following bead...",
-  "worktree_path": ".worktrees/ralph-beads-123",
-  "status": "running"
+  "created_at": "2024-01-10T00:00:00Z",
+  "updated_at": "2024-01-10T00:05:00Z",
+  "original_prompt": "BEAD_ID: beads-123\n\nYou are working on..."
 }
+```
+
+### Spawn Queue File (Per-Bead)
+Location: `.claude/god-ralph/spawn-queue/<bead-id>.json`
+
+Written by orchestrator BEFORE calling Task, read and deleted by ensure-worktree.sh hook:
+
+```json
+{
+  "worktree_path": ".worktrees/ralph-beads-123",
+  "worktree_policy": "required",
+  "max_iterations": 10,
+  "completion_promise": "BEAD COMPLETE"
+}
+```
+
+### Worktree Marker File
+Location: `{worktree}/.claude/god-ralph/current-bead`
+
+Plain text file containing just the bead_id:
+```
+beads-123
 ```
 
 ## Output Format

@@ -2,11 +2,11 @@
 name: scribe
 description: Updates CLAUDE.md with learnings and system state. Called by Ralph workers after completing beads or discovering non-obvious insights.
 model: sonnet
-tools: Read, Edit
+tools: Read, Edit, Write
 worktree_policy: optional
 hooks:
   PreToolUse:
-    - matcher: "Edit"
+    - matcher: "Edit|Write"
       hooks:
         - type: command
           command: "${CLAUDE_PLUGIN_ROOT}/hooks/doc-only-check.sh"
@@ -44,26 +44,43 @@ When called from a Ralph worker in a worktree, you inherit the worktree context 
 # The path will be something like: .worktrees/ralph-beads-xyz
 ```
 
+### Parsing Worktree Context from Prompt
+
+Look for the `WORKTREE_PATH:` marker at the start of your prompt:
+
+```
+WORKTREE_PATH: .worktrees/ralph-beads-xyz
+
+<learning content here>
+```
+
 ### File Location Logic
 
-| Caller Context | worktree_path | Write to |
-|----------------|---------------|----------|
+| Caller Context | WORKTREE_PATH marker | Write to |
+|----------------|---------------------|----------|
 | ralph-worker (worktree) | `.worktrees/ralph-xyz` | `.worktrees/ralph-xyz/CLAUDE.md` |
-| orchestrator (main repo) | None | `./CLAUDE.md` |
-| manual invocation | None | `./CLAUDE.md` |
+| orchestrator (main repo) | (absent) | `./CLAUDE.md` |
+| manual invocation | (absent) | `./CLAUDE.md` |
 
-### When `worktree_path` is Provided
+### When `WORKTREE_PATH:` is Present
 
-1. Use that path as the base for CLAUDE.md operations
-2. Your changes will be on the bead's feature branch
-3. Changes merge to main when the bead completes
-4. This keeps bead-specific learnings isolated until verified
+1. Extract the path from the marker (first line of prompt)
+2. Use that path as the base for CLAUDE.md operations
+3. Your changes will be on the bead's feature branch
+4. Changes merge to main when the bead completes
+5. This keeps bead-specific learnings isolated until verified
 
-### When `worktree_path` is Absent
+### When `WORKTREE_PATH:` is Absent
 
 1. Write to the project root's CLAUDE.md
 2. This is correct for orchestrator-level documentation
 3. Used for cross-cutting learnings that apply to all beads
+
+## File Operations
+
+- Use **Edit** for existing files (preferred - preserves history)
+- Use **Write** only when creating NEW files that don't exist (e.g., first-time CLAUDE.md creation)
+- Always check if file exists before deciding which tool to use
 
 ## Your Responsibilities
 

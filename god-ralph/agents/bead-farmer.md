@@ -1,7 +1,6 @@
 ---
 name: bead-farmer
 description: Decomposes feature specifications into atomic beads with proper granularity, dependencies, and context distribution. Also validates concrete issues with deduplication and git log checking.
-model: sonnet
 tools: Bash, Read, Grep, Glob
 worktree_policy: none
 ---

@@ -238,10 +238,7 @@ Actual: [actual behavior]
 
 Check for duplicates and recent fixes before creating.
 This is non-blocking - Ralph is continuing its work.
-    """,
-    inputs={
-        "worktree_policy": "none"  # bead-farmer works in main repo
-    }
+    """
 )
 ```
 
@@ -266,10 +263,7 @@ Actual: N+1 queries (visible in debug logs)
 
 Check for duplicates and recent fixes before creating.
 This is non-blocking - Ralph is continuing its work.
-    """,
-    inputs={
-        "worktree_policy": "none"
-    }
+    """
 )
 ```
 
@@ -294,10 +288,7 @@ Original bead: [bead-id] '[title]'
 
 Create a high-priority (P0) bug bead to resolve this conflict.
 Link it as a dependency of the original bead.
-    """,
-    inputs={
-        "worktree_policy": "none"
-    }
+    """
 )
 ```
 
@@ -319,10 +310,7 @@ Original bead: beads-user-api 'Add user API endpoint'
 
 Create a high-priority (P0) bug bead to resolve this conflict.
 Link it as a dependency of the original bead.
-    """,
-    inputs={
-        "worktree_policy": "none"
-    }
+    """
 )
 ```
 
@@ -348,10 +336,7 @@ Stack trace:
 Suggested fix: [suggestion]
 
 Create a P0 bug bead and link to [original-bead-id].
-    """,
-    inputs={
-        "worktree_policy": "none"
-    }
+    """
 )
 ```
 
@@ -381,10 +366,7 @@ FAIL src/api/settings.test.ts
 Suggested fix: Import SettingsSchema at top of settings.ts
 
 Create a P0 bug bead and link to beads-settings-api.
-    """,
-    inputs={
-        "worktree_policy": "none"
-    }
+    """
 )
 ```
 
@@ -398,9 +380,8 @@ Create a P0 bug bead and link to beads-settings-api.
 | Verification failure | P0 | Yes | Original bead |
 
 **Best practices:**
-1. Always include `worktree_policy="none"` in inputs
-2. Provide clear context about where the issue was discovered
-3. Include relevant file paths and line numbers
-4. For bugs, include expected vs actual behavior
-5. For failures, include stack traces when available
-6. Let bead-farmer handle deduplication - don't skip filing
+1. Provide clear context about where the issue was discovered
+2. Include relevant file paths and line numbers
+3. For bugs, include expected vs actual behavior
+4. For failures, include stack traces when available
+5. Let bead-farmer handle deduplication - don't skip filing

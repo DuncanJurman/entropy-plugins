@@ -16,29 +16,5 @@
     "ephemeral-agents",
     "parallel-execution",
     "ai-workflow"
-  ],
-  "hooks": {
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/stop-hook.sh"
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo '[god-ralph] Session started. Use /god-ralph start to begin autonomous execution.'"
-          }
-        ]
-      }
-    ]
-  }
+  ]
 }

@@ -7,6 +7,12 @@ capabilities:
   - Commit changes to feature branch
   - Signal completion via promise tags
 worktree_policy: required
+hooks:
+  Stop:
+    - hooks:
+        - type: command
+          command: "${CLAUDE_PLUGIN_ROOT}/hooks/ralph-stop-hook.sh"
+          timeout: 30
 ---
 
 # Ralph Worker Agent
@@ -39,8 +45,8 @@ else
   exit 1
 fi
 
-# 2. Verify correct branch
-BEAD_ID=$(cat .claude/god-ralph/ralph-session.json 2>/dev/null | jq -r '.bead_id // empty')
+# 2. Verify bead context from marker file
+BEAD_ID=$(cat .claude/god-ralph/current-bead 2>/dev/null || echo "")
 EXPECTED_BRANCH="ralph/${BEAD_ID}"
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
@@ -50,8 +56,10 @@ else
   echo "WARNING: Expected branch $EXPECTED_BRANCH, got $CURRENT_BRANCH"
 fi
 
-# 3. Confirm working directory
+# 3. Confirm working directory and session file
 echo "Working directory: $(pwd)"
+echo "Bead ID: $BEAD_ID"
+echo "Session file: .claude/god-ralph/sessions/$BEAD_ID.json"
 ```
 
 **If verification fails**, do NOT proceed with file modifications. Report the issue immediately.
@@ -216,10 +224,7 @@ Expected: Return default settings object
 Actual: Returns null
 
 Check for duplicates and recent fixes before creating.
-This is non-blocking - continue your current work.",
-  inputs={
-    "worktree_policy": "none"
-  }
+This is non-blocking - continue your current work."
 )
 ```
 
@@ -262,10 +267,7 @@ PERF: N+1 query in User model
 Location: src/models/User.ts
 Discovered while working on beads-xyz.
 
-Check for duplicates and recent fixes before creating.",
-  inputs={
-    "worktree_policy": "none"
-  }
+Check for duplicates and recent fixes before creating."
 )
 
 → Continue with settings API immediately (non-blocking)
@@ -292,21 +294,19 @@ The **scribe** agent persists learnings to CLAUDE.md so future Ralph workers (an
 
 ### How to Invoke
 
-**Use explicit Task() syntax with worktree context to ensure documentation updates write to your worktree's CLAUDE.md:**
+**Use explicit Task() syntax with WORKTREE_PATH marker in the prompt to ensure documentation updates write to your worktree's CLAUDE.md:**
 
 ```
 Task(
   subagent_type="scribe",
   description="Update CLAUDE.md with learning",
-  prompt="<your learning here - be specific and actionable>",
-  inputs={
-    "worktree_path": "$(pwd)",
-    "worktree_policy": "optional"
-  }
+  prompt="WORKTREE_PATH: .worktrees/ralph-<your-bead-id>
+
+<your learning here - be specific and actionable>"
 )
 ```
 
-The `worktree_path` ensures scribe writes to your worktree's CLAUDE.md, not the main repo. This prevents cross-branch documentation drift.
+The `WORKTREE_PATH:` marker tells scribe which worktree's CLAUDE.md to update. This prevents cross-branch documentation drift. If omitted, scribe writes to the main repo's CLAUDE.md.
 
 ### Examples
 
@@ -315,12 +315,10 @@ The `worktree_path` ensures scribe writes to your worktree's CLAUDE.md, not the 
 Task(
   subagent_type="scribe",
   description="Update system state after completing settings endpoint",
-  prompt="Backend: Added /api/settings endpoint with GET/POST handlers.
-Uses SettingsSchema for validation. Requires auth middleware.",
-  inputs={
-    "worktree_path": "$(pwd)",
-    "worktree_policy": "optional"
-  }
+  prompt="WORKTREE_PATH: .worktrees/ralph-beads-settings-api
+
+Backend: Added /api/settings endpoint with GET/POST handlers.
+Uses SettingsSchema for validation. Requires auth middleware."
 )
 ```
 
@@ -329,12 +327,10 @@ Uses SettingsSchema for validation. Requires auth middleware.",
 Task(
   subagent_type="scribe",
   description="Log auth middleware learning",
-  prompt="Settings API requires auth - initially got 401s calling without token.
-AuthMiddleware must run before SettingsController.",
-  inputs={
-    "worktree_path": "$(pwd)",
-    "worktree_policy": "optional"
-  }
+  prompt="WORKTREE_PATH: .worktrees/ralph-beads-auth-fix
+
+Settings API requires auth - initially got 401s calling without token.
+AuthMiddleware must run before SettingsController."
 )
 ```
 
@@ -343,12 +339,10 @@ AuthMiddleware must run before SettingsController.",
 Task(
   subagent_type="scribe",
   description="Document API route pattern",
-  prompt="All API routes follow pattern: router.METHOD('/path', validateBody(schema), authMiddleware, controller).
-Found in src/api/*.ts - keep new endpoints consistent.",
-  inputs={
-    "worktree_path": "$(pwd)",
-    "worktree_policy": "optional"
-  }
+  prompt="WORKTREE_PATH: .worktrees/ralph-beads-api-refactor
+
+All API routes follow pattern: router.METHOD('/path', validateBody(schema), authMiddleware, controller).
+Found in src/api/*.ts - keep new endpoints consistent."
 )
 ```
 
@@ -384,7 +378,8 @@ Each iteration, you should re-orient yourself:
 
 ```bash
 # What bead am I working on?
-cat .claude/god-ralph/ralph-session.json | jq '.bead_id'
+BEAD_ID=$(cat .claude/god-ralph/current-bead)
+echo "Bead: $BEAD_ID"
 
 # What did I do last iteration?
 git log --oneline -5
@@ -393,7 +388,7 @@ git log --oneline -5
 git diff --name-only HEAD~1
 
 # What's the current iteration?
-cat .claude/god-ralph/ralph-session.json | jq '.iteration'
+cat ".claude/god-ralph/sessions/$BEAD_ID.json" | jq '.iteration'
 ```
 
 ## Critical Rules
