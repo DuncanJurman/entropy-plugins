@@ -96,10 +96,62 @@ The PreToolUse hook uses `subagent_type` to determine if a worktree is needed:
 **Important**: Only use `subagent_type="ralph-worker"` for agents that will write code and need git branch isolation. Other agents run in the main repository context.
 
 ### Phase 5: Monitor & Merge
+
+#### Detecting Ralph Completion
+
+The Task tool is asynchronous - spawning a Ralph returns immediately. To detect completion, **poll the session state file**:
+
+```bash
+# Poll ralph-session.json for status changes
+# State file location: .claude/god-ralph/ralph-session.json (main repo copy)
+
+# Check if Ralph is still running
+jq -r '.status' .claude/god-ralph/ralph-session.json
+# Returns: "initializing" | "running" | "completed" | "failed"
+
+# Get current iteration
+jq -r '.iteration' .claude/god-ralph/ralph-session.json
+
+# Get bead ID
+jq -r '.bead_id' .claude/god-ralph/ralph-session.json
+```
+
+**Polling Pattern**:
+```
+LOOP:
+  status = read .claude/god-ralph/ralph-session.json | .status
+
+  IF status == "completed":
+    → Proceed to merge
+  ELIF status == "failed":
+    → Handle failure (max iterations reached)
+  ELSE:
+    → Ralph still working, wait and check again
+```
+
+**Status Transitions**:
+```
+initializing → running (after first iteration)
+running → completed (promise detected)
+running → failed (max iterations reached)
+```
+
+#### Merging and Cleanup
+
 When a Ralph completes (state file shows `status: completed`):
 1. Switch to main branch
 2. Merge the Ralph's feature branch
-3. Delete worktree
+3. **Run cleanup script** to remove worktree and session state:
+   ```bash
+   # Clean single worktree after merge
+   ${CLAUDE_PLUGIN_ROOT}/scripts/cleanup-worktree.sh <bead-id>
+
+   # Or clean all completed/failed at once
+   ${CLAUDE_PLUGIN_ROOT}/scripts/cleanup-worktree.sh --all
+
+   # Check status of all worktrees
+   ${CLAUDE_PLUGIN_ROOT}/scripts/cleanup-worktree.sh --status
+   ```
 4. Spawn verification Ralph
 
 ### Phase 6: Verification

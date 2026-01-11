@@ -58,7 +58,8 @@ if [[ -n "$TRANSCRIPT_PATH" ]] && [[ -f "$TRANSCRIPT_PATH" ]]; then
 
     if [[ -n "$LAST_MESSAGE" ]]; then
         # Check for <promise>COMPLETION_PROMISE</promise> pattern
-        if echo "$LAST_MESSAGE" | grep -qE "<promise>$COMPLETION_PROMISE</promise>"; then
+        # Use -F for fixed string matching (not regex) to avoid special char issues
+        if echo "$LAST_MESSAGE" | grep -qF "<promise>$COMPLETION_PROMISE</promise>"; then
             PROMISE_FOUND=true
         fi
     fi
@@ -69,13 +70,23 @@ mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/ralph-$BEAD_ID.log"
 echo "[$(date -Iseconds)] Iteration $ITERATION/$MAX_ITERATIONS - Promise found: $PROMISE_FOUND" >> "$LOG_FILE"
 
+# Helper function to sync state to both main repo and worktree
+sync_state_file() {
+    local new_state="$1"
+    echo "$new_state" > "$STATE_FILE"
+    # Also sync to worktree if path is available
+    if [[ -n "$WORKTREE_PATH" ]] && [[ -d "$WORKTREE_PATH/.claude/god-ralph" ]]; then
+        echo "$new_state" > "$WORKTREE_PATH/.claude/god-ralph/ralph-session.json"
+    fi
+}
+
 # Check if we should exit
 if [[ "$PROMISE_FOUND" == "true" ]]; then
     echo "[god-ralph] Bead $BEAD_ID completed! Promise detected." >> "$LOG_FILE"
 
     # Mark bead as ready for verification
-    echo "$STATE" | jq '.status = "completed" | .completed_at = now' > "$STATE_FILE.completed"
-    mv "$STATE_FILE.completed" "$STATE_FILE"
+    UPDATED_STATE=$(echo "$STATE" | jq '.status = "completed" | .completed_at = now')
+    sync_state_file "$UPDATED_STATE"
 
     # Allow exit - orchestrator will pick up from here
     exit 0
@@ -86,8 +97,8 @@ if (( ITERATION >= MAX_ITERATIONS )); then
     echo "[god-ralph] Max iterations ($MAX_ITERATIONS) reached for bead $BEAD_ID" >> "$LOG_FILE"
 
     # Mark bead as failed
-    echo "$STATE" | jq '.status = "failed" | .failure_reason = "max_iterations_reached"' > "$STATE_FILE.failed"
-    mv "$STATE_FILE.failed" "$STATE_FILE"
+    UPDATED_STATE=$(echo "$STATE" | jq '.status = "failed" | .failure_reason = "max_iterations_reached"')
+    sync_state_file "$UPDATED_STATE"
 
     # Allow exit
     exit 0
@@ -95,8 +106,8 @@ fi
 
 # Increment iteration and continue loop
 NEW_ITERATION=$((ITERATION + 1))
-echo "$STATE" | jq ".iteration = $NEW_ITERATION" > "$STATE_FILE.tmp"
-mv "$STATE_FILE.tmp" "$STATE_FILE"
+UPDATED_STATE=$(echo "$STATE" | jq ".iteration = $NEW_ITERATION")
+sync_state_file "$UPDATED_STATE"
 
 # Get the prompt from state
 PROMPT=$(echo "$STATE" | jq -r '.prompt // empty')
@@ -114,11 +125,18 @@ ONLY output the promise when the acceptance criteria are FULLY met.
 
 Continue working on the task:"
 
+# Build the full reason (continuation message + original prompt)
+FULL_REASON="$CONTINUE_MSG
+
+$PROMPT"
+
 # Block exit and re-inject prompt
-# Output JSON to block the exit and provide reason (which becomes new input)
+# Properly escape the reason for JSON using jq
+ESCAPED_REASON=$(echo "$FULL_REASON" | jq -Rs '.')
+
 cat << EOF
 {
   "decision": "block",
-  "reason": "$CONTINUE_MSG\n\n$PROMPT"
+  "reason": $ESCAPED_REASON
 }
 EOF

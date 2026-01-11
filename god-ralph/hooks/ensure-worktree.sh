@@ -66,12 +66,13 @@ if [[ "$NEEDS_WORKTREE" != "true" ]]; then
 fi
 
 # Extract bead ID from prompt
-# Try multiple patterns: beads-xxx, bead-xxx, TableClay-xxx, etc.
-BEAD_ID=$(echo "$PROMPT" | grep -oE '[A-Za-z]+-[A-Za-z0-9]{3,8}' | head -1 || echo "")
+# Strict pattern: only match known bead prefixes to avoid false positives like "user-settings"
+# Supported prefixes: beads, task, bug, feature, fix, epic (add more as needed)
+BEAD_ID=$(echo "$PROMPT" | grep -oE '(beads|task|bug|feature|fix|epic)-[a-zA-Z0-9]{3,12}' | head -1 || echo "")
 
 # If no bead ID found, try extracting from description
 if [[ -z "$BEAD_ID" ]]; then
-    BEAD_ID=$(echo "$DESCRIPTION" | grep -oE '[A-Za-z]+-[A-Za-z0-9]{3,8}' | head -1 || echo "")
+    BEAD_ID=$(echo "$DESCRIPTION" | grep -oE '(beads|task|bug|feature|fix|epic)-[a-zA-Z0-9]{3,12}' | head -1 || echo "")
 fi
 
 # If still no bead ID, generate a timestamp-based one
@@ -98,10 +99,10 @@ if [[ -d "$WORKTREE_PATH" ]]; then
     echo "[$(date -Iseconds)] Worktree already exists: $WORKTREE_PATH" >> "$LOG_FILE"
 else
     # Create the worktree
-    # First try with new branch, fallback to existing branch
-    if git worktree add "$WORKTREE_PATH" -b "$BRANCH_NAME" 2>>"$LOG_FILE"; then
+    # Redirect both stdout and stderr to log (git outputs "HEAD is now at" to stdout)
+    if git worktree add "$WORKTREE_PATH" -b "$BRANCH_NAME" >>"$LOG_FILE" 2>&1; then
         echo "[$(date -Iseconds)] Created worktree with new branch: $BRANCH_NAME" >> "$LOG_FILE"
-    elif git worktree add "$WORKTREE_PATH" "$BRANCH_NAME" 2>>"$LOG_FILE"; then
+    elif git worktree add "$WORKTREE_PATH" "$BRANCH_NAME" >>"$LOG_FILE" 2>&1; then
         echo "[$(date -Iseconds)] Created worktree with existing branch: $BRANCH_NAME" >> "$LOG_FILE"
     else
         echo "[$(date -Iseconds)] ERROR: Failed to create worktree" >> "$LOG_FILE"
@@ -111,24 +112,42 @@ else
     fi
 fi
 
-# Create state directory in worktree
+# Create state directories in BOTH worktree AND main repo
+# - Worktree copy: for Ralph to read (bead ID, iteration count, etc.)
+# - Main repo copy: for stop-hook to read (since stop-hook runs from main repo)
 mkdir -p "$WORKTREE_PATH/.claude/god-ralph"
+mkdir -p ".claude/god-ralph"
 
-# Create initial session state file
-STATE_FILE="$WORKTREE_PATH/.claude/god-ralph/ralph-session.json"
-cat > "$STATE_FILE" << EOF
+# Escape prompt for JSON storage (required for stop-hook re-injection)
+ESCAPED_ORIGINAL_PROMPT=$(echo "$PROMPT" | jq -Rs '.')
+
+# Create initial session state JSON
+# NOTE: prompt field is critical - stop-hook uses it to re-inject on continuation
+STATE_JSON=$(cat << EOF
 {
+  "version": 1,
   "bead_id": "$BEAD_ID",
   "worktree_path": "$PROJECT_ROOT/$WORKTREE_PATH",
   "branch": "$BRANCH_NAME",
   "iteration": 0,
   "max_iterations": 50,
   "status": "initializing",
+  "completion_promise": "BEAD COMPLETE",
+  "prompt": $ESCAPED_ORIGINAL_PROMPT,
   "created_at": "$(date -Iseconds)"
 }
 EOF
+)
 
-echo "[$(date -Iseconds)] Created session state: $STATE_FILE" >> "$LOG_FILE"
+# Write state to BOTH locations
+WORKTREE_STATE_FILE="$WORKTREE_PATH/.claude/god-ralph/ralph-session.json"
+MAIN_STATE_FILE=".claude/god-ralph/ralph-session.json"
+
+echo "$STATE_JSON" > "$WORKTREE_STATE_FILE"
+echo "$STATE_JSON" > "$MAIN_STATE_FILE"
+
+echo "[$(date -Iseconds)] Created session state in worktree: $WORKTREE_STATE_FILE" >> "$LOG_FILE"
+echo "[$(date -Iseconds)] Created session state in main repo: $MAIN_STATE_FILE" >> "$LOG_FILE"
 
 # Build the enhanced prompt with worktree context
 WORKTREE_CONTEXT="## Worktree Environment
