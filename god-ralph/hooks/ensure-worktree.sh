@@ -172,14 +172,18 @@ else
 fi
 
 # =============================================================================
-# SESSION STATE SETUP
+# SESSION STATE SETUP (SYMLINK-BASED)
 # =============================================================================
-# Create state directories in BOTH worktree AND main repo
-# - Worktree copy: for Ralph to read (bead ID, iteration count, etc.)
-# - Main repo copy: for stop-hook to read (since stop-hook runs from main repo)
+# State lives ONLY in main repo - worktree gets a symlink.
+# This ensures single source of truth and avoids sync issues.
+# - Main repo: .claude/god-ralph/ralph-session.json (actual file)
+# - Worktree: .claude/god-ralph -> symlink to main repo's .claude/god-ralph
 
-mkdir -p "$WORKTREE_PATH/.claude/god-ralph"
-mkdir -p ".claude/god-ralph"
+# Get the main repo path (handles both worktree and main repo contexts)
+MAIN_REPO_PATH=$(git rev-parse --show-toplevel 2>/dev/null || echo "$PROJECT_ROOT")
+
+# Create state directory in main repo only
+mkdir -p "$MAIN_REPO_PATH/.claude/god-ralph"
 
 # Escape prompt for JSON storage (required for stop-hook re-injection)
 ESCAPED_ORIGINAL_PROMPT=$(echo "$PROMPT" | jq -Rs '.')
@@ -195,21 +199,37 @@ STATE_JSON=$(cat << EOF
   "max_iterations": 50,
   "status": "initializing",
   "completion_promise": "BEAD COMPLETE",
-  "prompt": $ESCAPED_ORIGINAL_PROMPT,
-  "created_at": "$(date -Iseconds)"
+  "started_at": "$(date -Iseconds)",
+  "prompt": $ESCAPED_ORIGINAL_PROMPT
 }
 EOF
 )
 
-# Write state to BOTH locations
-WORKTREE_STATE_FILE="$WORKTREE_PATH/.claude/god-ralph/ralph-session.json"
-MAIN_STATE_FILE=".claude/god-ralph/ralph-session.json"
-
-echo "$STATE_JSON" > "$WORKTREE_STATE_FILE"
+# Write state to main repo only
+MAIN_STATE_FILE="$MAIN_REPO_PATH/.claude/god-ralph/ralph-session.json"
 echo "$STATE_JSON" > "$MAIN_STATE_FILE"
-
-log_msg "Created session state in worktree: $WORKTREE_STATE_FILE"
 log_msg "Created session state in main repo: $MAIN_STATE_FILE"
+
+# Create symlink in worktree pointing to main repo's state directory
+# First ensure .claude directory exists in worktree
+mkdir -p "$WORKTREE_PATH/.claude"
+
+# Remove existing god-ralph dir/symlink in worktree if present (to avoid conflicts)
+if [[ -e "$WORKTREE_PATH/.claude/god-ralph" || -L "$WORKTREE_PATH/.claude/god-ralph" ]]; then
+    rm -rf "$WORKTREE_PATH/.claude/god-ralph"
+    log_msg "Removed existing .claude/god-ralph in worktree"
+fi
+
+# Create symlink from worktree to main repo's state directory
+ln -sf "$MAIN_REPO_PATH/.claude/god-ralph" "$WORKTREE_PATH/.claude/god-ralph"
+log_msg "Created symlink: $WORKTREE_PATH/.claude/god-ralph -> $MAIN_REPO_PATH/.claude/god-ralph"
+
+# Verify symlink is working
+if [[ -L "$WORKTREE_PATH/.claude/god-ralph" ]] && [[ -f "$WORKTREE_PATH/.claude/god-ralph/ralph-session.json" ]]; then
+    log_msg "Symlink verification: SUCCESS - state accessible from both locations"
+else
+    log_msg "WARNING: Symlink verification failed - state may not be accessible from worktree"
+fi
 
 # =============================================================================
 # BUILD ENHANCED PROMPT WITH WORKTREE CONTEXT

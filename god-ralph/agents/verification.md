@@ -6,6 +6,7 @@ capabilities:
   - Check UI via Chrome extension
   - Verify API endpoints on preview URLs
   - Create fix-beads for failures
+worktree_policy: optional
 ---
 
 # Verification Ralph Agent

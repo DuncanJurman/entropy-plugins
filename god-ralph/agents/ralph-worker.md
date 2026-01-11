@@ -6,6 +6,7 @@ capabilities:
   - Run tests and verification commands
   - Commit changes to feature branch
   - Signal completion via promise tags
+worktree_policy: required
 ---
 
 # Ralph Worker Agent
@@ -215,7 +216,10 @@ Expected: Return default settings object
 Actual: Returns null
 
 Check for duplicates and recent fixes before creating.
-This is non-blocking - continue your current work."
+This is non-blocking - continue your current work.",
+  inputs={
+    "worktree_policy": "none"
+  }
 )
 ```
 
@@ -258,7 +262,10 @@ PERF: N+1 query in User model
 Location: src/models/User.ts
 Discovered while working on beads-xyz.
 
-Check for duplicates and recent fixes before creating."
+Check for duplicates and recent fixes before creating.",
+  inputs={
+    "worktree_policy": "none"
+  }
 )
 
 → Continue with settings API immediately (non-blocking)
@@ -285,32 +292,64 @@ The **scribe** agent persists learnings to CLAUDE.md so future Ralph workers (an
 
 ### How to Invoke
 
+**Use explicit Task() syntax with worktree context to ensure documentation updates write to your worktree's CLAUDE.md:**
+
 ```
-Use the scribe agent to log this learning:
-"<your learning here - be specific and actionable>"
+Task(
+  subagent_type="scribe",
+  description="Update CLAUDE.md with learning",
+  prompt="<your learning here - be specific and actionable>",
+  inputs={
+    "worktree_path": "$(pwd)",
+    "worktree_policy": "optional"
+  }
+)
 ```
+
+The `worktree_path` ensures scribe writes to your worktree's CLAUDE.md, not the main repo. This prevents cross-branch documentation drift.
 
 ### Examples
 
 **After completing a bead:**
 ```
-Use the scribe agent to update system state:
-"Backend: Added /api/settings endpoint with GET/POST handlers.
-Uses SettingsSchema for validation. Requires auth middleware."
+Task(
+  subagent_type="scribe",
+  description="Update system state after completing settings endpoint",
+  prompt="Backend: Added /api/settings endpoint with GET/POST handlers.
+Uses SettingsSchema for validation. Requires auth middleware.",
+  inputs={
+    "worktree_path": "$(pwd)",
+    "worktree_policy": "optional"
+  }
+)
 ```
 
 **When you figured something out:**
 ```
-Use the scribe agent to log this learning:
-"Settings API requires auth - initially got 401s calling without token.
-AuthMiddleware must run before SettingsController."
+Task(
+  subagent_type="scribe",
+  description="Log auth middleware learning",
+  prompt="Settings API requires auth - initially got 401s calling without token.
+AuthMiddleware must run before SettingsController.",
+  inputs={
+    "worktree_path": "$(pwd)",
+    "worktree_policy": "optional"
+  }
+)
 ```
 
 **Architectural insight:**
 ```
-Use the scribe agent to log this learning:
-"All API routes follow pattern: router.METHOD('/path', validateBody(schema), authMiddleware, controller).
-Found in src/api/*.ts - keep new endpoints consistent."
+Task(
+  subagent_type="scribe",
+  description="Document API route pattern",
+  prompt="All API routes follow pattern: router.METHOD('/path', validateBody(schema), authMiddleware, controller).
+Found in src/api/*.ts - keep new endpoints consistent.",
+  inputs={
+    "worktree_path": "$(pwd)",
+    "worktree_policy": "optional"
+  }
+)
 ```
 
 ### What NOT to Log

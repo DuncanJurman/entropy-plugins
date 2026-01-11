@@ -3,7 +3,13 @@ name: scribe
 description: Updates CLAUDE.md with learnings and system state. Called by Ralph workers after completing beads or discovering non-obvious insights.
 model: sonnet
 tools: Read, Edit
+worktree_policy: optional
 hooks:
+  PreToolUse:
+    - matcher: "Edit"
+      hooks:
+        - type: command
+          command: "${CLAUDE_PLUGIN_ROOT}/hooks/doc-only-check.sh"
   Stop:
     - matcher: ""
       hooks:
