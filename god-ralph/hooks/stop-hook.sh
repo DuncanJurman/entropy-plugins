@@ -15,8 +15,10 @@ set -euo pipefail
 # Read stop hook input from stdin (JSON with transcript_path)
 HOOK_INPUT=$(cat)
 
-# State file location (in project's .claude directory)
-STATE_DIR=".claude/god-ralph"
+# Always read from main repo (not relative to CWD)
+# This ensures the hook works from both main repo and worktree contexts
+MAIN_REPO_PATH=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+STATE_DIR="$MAIN_REPO_PATH/.claude/god-ralph"
 STATE_FILE="$STATE_DIR/ralph-session.json"
 LOG_DIR="$STATE_DIR/logs"
 
@@ -70,14 +72,12 @@ mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/ralph-$BEAD_ID.log"
 echo "[$(date -Iseconds)] Iteration $ITERATION/$MAX_ITERATIONS - Promise found: $PROMISE_FOUND" >> "$LOG_FILE"
 
-# Helper function to sync state to both main repo and worktree
+# Helper function to update state file
+# Note: With symlinked state management, writing to STATE_FILE automatically
+# updates both main repo and worktree (symlink handles this)
 sync_state_file() {
     local new_state="$1"
     echo "$new_state" > "$STATE_FILE"
-    # Also sync to worktree if path is available
-    if [[ -n "$WORKTREE_PATH" ]] && [[ -d "$WORKTREE_PATH/.claude/god-ralph" ]]; then
-        echo "$new_state" > "$WORKTREE_PATH/.claude/god-ralph/ralph-session.json"
-    fi
 }
 
 # Check if we should exit

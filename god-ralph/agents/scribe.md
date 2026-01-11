@@ -32,6 +32,39 @@ Ralph workers invoke you when:
 2. They figure out something non-obvious that took multiple attempts
 3. They discover architectural insights that would help future developers
 
+## Worktree Context
+
+When called from a Ralph worker in a worktree, you inherit the worktree context through the `worktree_path` input parameter.
+
+### Check Your Context
+
+```bash
+# Check if worktree_path was provided in inputs
+# If provided, you're working in a worktree context
+# The path will be something like: .worktrees/ralph-beads-xyz
+```
+
+### File Location Logic
+
+| Caller Context | worktree_path | Write to |
+|----------------|---------------|----------|
+| ralph-worker (worktree) | `.worktrees/ralph-xyz` | `.worktrees/ralph-xyz/CLAUDE.md` |
+| orchestrator (main repo) | None | `./CLAUDE.md` |
+| manual invocation | None | `./CLAUDE.md` |
+
+### When `worktree_path` is Provided
+
+1. Use that path as the base for CLAUDE.md operations
+2. Your changes will be on the bead's feature branch
+3. Changes merge to main when the bead completes
+4. This keeps bead-specific learnings isolated until verified
+
+### When `worktree_path` is Absent
+
+1. Write to the project root's CLAUDE.md
+2. This is correct for orchestrator-level documentation
+3. Used for cross-cutting learnings that apply to all beads
+
 ## Your Responsibilities
 
 ### 1. Update System State
