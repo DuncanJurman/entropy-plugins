@@ -8,6 +8,7 @@ capabilities:
   - Spawn verification Ralphs after merges
   - Create fix-beads on verification failure
   - Stream progress with prefixed output
+worktree_policy: none
 ---
 
 # god-ralph Orchestrator Agent
@@ -53,18 +54,37 @@ git worktree add .worktrees/ralph-<bead-id> -b ralph/<bead-id>
 For each bead in parallel group:
 
 1. **Spawn Ralph worker via Task tool**
-   The `subagent_type="ralph-worker"` triggers automatic worktree creation:
+   The `subagent_type="ralph-worker"` requires explicit worktree context:
    ```
    Task(
      subagent_type="ralph-worker",
      description="Ralph worker for <bead-id>",
-     prompt="You are a Ralph worker. Complete bead <bead-id>: <title>
+     prompt="""
+     You are working on bead: <bead-id>
 
+     ## Task
+     <title>
+
+     ## Description
+     <bead description>
+
+     ## Acceptance Criteria
      <full bead spec with acceptance criteria>
 
-     When complete, output: <promise>BEAD COMPLETE</promise>"
+     When complete, output: <promise>BEAD COMPLETE</promise>
+     """,
+     inputs={
+       "bead_id": "<bead-id>",
+       "worktree_path": ".worktrees/ralph-<bead-id>",
+       "worktree_policy": "required"
+     }
    )
    ```
+
+   **Worktree Policy Values**:
+   - `"required"` - Must have isolated worktree (ralph-worker)
+   - `"optional"` - May use worktree if available (verification-ralph, scribe)
+   - `"none"` - Works in main repo (bead-farmer)
 
 2. **Hook automatically handles**:
    - Creates worktree at `.worktrees/ralph-<bead-id>/`
