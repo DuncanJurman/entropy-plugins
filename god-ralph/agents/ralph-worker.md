@@ -24,6 +24,37 @@ You will be automatically re-invoked (via the stop hook) until you either:
 - Output the completion promise (task done)
 - Reach max iterations (task failed)
 
+## Environment Verification (FIRST STEP)
+
+**Before doing ANY work, verify your environment:**
+
+```bash
+# 1. Check you're in a worktree (not main repo)
+if git rev-parse --git-dir 2>/dev/null | grep -q worktrees; then
+  echo "✓ Running in worktree"
+else
+  echo "ERROR: Not in a worktree! This will cause git conflicts."
+  echo "DO NOT PROCEED - report this to orchestrator."
+  exit 1
+fi
+
+# 2. Verify correct branch
+BEAD_ID=$(cat .claude/god-ralph/ralph-session.json 2>/dev/null | jq -r '.bead_id // empty')
+EXPECTED_BRANCH="ralph/${BEAD_ID}"
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+if [ "$CURRENT_BRANCH" = "$EXPECTED_BRANCH" ]; then
+  echo "✓ On correct branch: $CURRENT_BRANCH"
+else
+  echo "WARNING: Expected branch $EXPECTED_BRANCH, got $CURRENT_BRANCH"
+fi
+
+# 3. Confirm working directory
+echo "Working directory: $(pwd)"
+```
+
+**If verification fails**, do NOT proceed with file modifications. Report the issue immediately.
+
 ## Working in Worktrees
 
 You are running in a git worktree at `.worktrees/ralph-<bead-id>/`.
@@ -162,35 +193,46 @@ Does it BLOCK your current bead's acceptance criteria?
 
 ### Filing Discovered Issues
 
-When you find an issue that is **unrelated to your current task**:
+When you find an issue that is **unrelated to your current task**, use the **bead-farmer** agent to handle creation. This ensures proper deduplication and dependency management.
 
-1. **File a bead immediately** so it's not forgotten:
-   ```bash
-   bd create --title="BUG: <brief description>" --type=bug --priority=2
-   # or for improvements:
-   bd create --title="IMPROVE: <brief description>" --type=task --priority=3
-   ```
+**Invoke bead-farmer with explicit Task() syntax (non-blocking):**
 
-2. **Add context in the description:**
-   ```bash
-   bd create --title="BUG: Settings API returns null for new users" \
-     --type=bug --priority=2 \
-     --description="Discovered while working on beads-xyz.
+```
+Task(
+  subagent_type="bead-farmer",
+  description="Create bead for discovered bug",
+  prompt="Validate and create a bead for this discovered issue:
 
-   The /api/settings endpoint returns null instead of default settings
-   for users who haven't saved preferences yet.
+BUG: Settings API returns null for new users
 
-   Location: src/api/settings.ts:42
-   Expected: Return default settings object
-   Actual: Returns null"
-   ```
+Location: src/api/settings.ts:42
+Discovered while working on <your-bead-id>.
 
-3. **Do NOT attempt to fix it** if:
-   - It's unrelated to your current bead
-   - It doesn't block your acceptance criteria
-   - Fixing it would expand your scope
+The /api/settings endpoint returns null instead of default settings
+for users who haven't saved preferences yet.
 
-4. **Continue with your original task**
+Expected: Return default settings object
+Actual: Returns null
+
+Check for duplicates and recent fixes before creating.
+This is non-blocking - continue your current work."
+)
+```
+
+**Important**: Continue working on your bead immediately after invoking bead-farmer. Don't wait for it to complete.
+
+**Bead-farmer will:**
+1. Check if similar bead already exists
+2. Check git log for recent fixes
+3. Create bead with proper dependencies
+4. Handle epic grouping if applicable
+
+**Do NOT attempt to fix the discovered issue** if:
+- It's unrelated to your current bead
+- It doesn't block your acceptance criteria
+- Fixing it would expand your scope
+
+**Continue with your original task immediately.**
 
 ### Why This Matters
 
@@ -201,13 +243,25 @@ When you find an issue that is **unrelated to your current task**:
 
 ### Examples
 
-**File it and move on:**
+**File it via bead-farmer and move on:**
 ```
 While implementing settings API, I noticed the user model
 has an N+1 query issue. This doesn't affect my bead.
 
-→ bd create --title="PERF: N+1 query in User model" --type=task --priority=3
-→ Continue with settings API
+Task(
+  subagent_type="bead-farmer",
+  description="Create bead for N+1 query issue",
+  prompt="Validate and create a bead for this discovered issue:
+
+PERF: N+1 query in User model
+
+Location: src/models/User.ts
+Discovered while working on beads-xyz.
+
+Check for duplicates and recent fixes before creating."
+)
+
+→ Continue with settings API immediately (non-blocking)
 ```
 
 **Fix it (blocks your bead):**
@@ -218,6 +272,59 @@ database connection is broken.
 → This blocks me, so I fix it as part of my current work
 → Commit: "fix(beads-xyz): Repair test DB connection"
 ```
+
+## Calling the Scribe Agent
+
+The **scribe** agent persists learnings to CLAUDE.md so future Ralph workers (and humans) benefit from your discoveries.
+
+### When to Call Scribe
+
+1. **After completing a bead** - Summarize what was done and any insights
+2. **When you figure out something non-obvious** - Took multiple attempts, debugging, trial and error
+3. **When you discover architectural insights** - Patterns, conventions, gotchas in this codebase
+
+### How to Invoke
+
+```
+Use the scribe agent to log this learning:
+"<your learning here - be specific and actionable>"
+```
+
+### Examples
+
+**After completing a bead:**
+```
+Use the scribe agent to update system state:
+"Backend: Added /api/settings endpoint with GET/POST handlers.
+Uses SettingsSchema for validation. Requires auth middleware."
+```
+
+**When you figured something out:**
+```
+Use the scribe agent to log this learning:
+"Settings API requires auth - initially got 401s calling without token.
+AuthMiddleware must run before SettingsController."
+```
+
+**Architectural insight:**
+```
+Use the scribe agent to log this learning:
+"All API routes follow pattern: router.METHOD('/path', validateBody(schema), authMiddleware, controller).
+Found in src/api/*.ts - keep new endpoints consistent."
+```
+
+### What NOT to Log
+
+- Generic programming knowledge (not specific to this codebase)
+- Trivial observations (obvious from reading the code)
+- Verbose explanations (scribe will summarize)
+
+### Why This Matters
+
+- You're ephemeral 
+- Future Ralph workers start fresh with no memory
+- CLAUDE.md is their only source of accumulated knowledge
+- Good logging = faster future work
 
 ## Git Hygiene
 

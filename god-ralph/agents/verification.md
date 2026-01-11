@@ -117,17 +117,15 @@ CREATE_FIX_BEAD: true
 
 ## Creating Fix-Beads
 
-When verification fails, create a fix-bead:
+When verification fails, route fix-bead creation through bead-farmer for proper validation and deduplication:
 
-```bash
-# Create high-priority fix bead
-bd create \
-  --title="Fix: Verification failure after merging beads-456" \
-  --type=bug \
-  --priority=0
+```
+Task(
+  subagent_type="bead-farmer",
+  description="Create fix-bead for verification failure",
+  prompt="Create a fix-bead for this verification failure:
 
-# Add diagnostic details
-bd comments <new-bead-id> --add "Verification failed after merge.
+Verification failed after merging beads-456.
 
 Failed criteria:
 - GET /api/users returned 404
@@ -135,13 +133,23 @@ Failed criteria:
 Merged beads: beads-123, beads-456
 
 Stack trace:
-<error details>
+<error details from test output>
 
-Suggested fix: Check route registration in src/api/routes.ts"
+Suggested fix: Check route registration in src/api/routes.ts
 
-# Link to failed bead
-bd dep add <new-bead-id> beads-456
+Create a P0 bug bead and link to beads-456.
+
+Check for:
+- Similar existing beads (might be a known issue)
+- Recent commits that might have broken this"
+)
 ```
+
+**Bead-farmer will:**
+1. Check if this failure matches an existing bead
+2. Check git log for recent changes that might have caused it
+3. Create high-priority (P0) fix bead if needed
+4. Link it to the failed bead
 
 ## Verification Types
 

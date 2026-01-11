@@ -1,10 +1,10 @@
 ---
-description: Interactive wizard to create Ralph-ready beads with acceptance criteria. Requires initial context describing the feature or task.
+description: Interactive wizard to create comprehensive feature specifications. Gathers context, explores codebase, and outputs detailed design documents for bead-farmer to decompose.
 ---
 
 # /god-ralph plan <initial context>
 
-Interactive wizard to create well-specified, Ralph-ready beads with enough context for autonomous execution.
+Interactive wizard that creates comprehensive feature specifications with enough detail for bead-farmer to decompose into atomic beads.
 
 ## Usage
 
@@ -39,6 +39,24 @@ Examples:
 
 **Do NOT proceed with generic questions.** Wait for the user to provide their idea.
 
+## Philosophy
+
+**You are the Architect.** Your job is to produce a **comprehensive feature specification** - NOT to decide bead granularity, titles, or dependencies. That's bead-farmer's job.
+
+**What comprehensive means:**
+- Exhaustive detail organized by concern
+- Every relevant file, pattern, convention discovered
+- All edge cases and constraints documented
+- Clear acceptance criteria at the feature level
+- NOT vague "high-level" descriptions
+
+**What you DON'T decide:**
+- How many beads to create
+- Bead titles or descriptions
+- Dependency chains between beads
+- Ralph specs or iteration limits
+- What subset of context each bead gets
+
 ## Visual References (Screenshots, Mockups)
 
 When the user provides images (mockups, screenshots, designs):
@@ -54,48 +72,13 @@ When the user provides images (mockups, screenshots, designs):
    Read("reference-images/homepage-mockup.png")
    ```
 
-3. **Include in bead description** with path + text summary:
+3. **Include in specification** with path + text summary:
    ```markdown
    ## Visual References
    - `reference-images/homepage-mockup.png` - Hero with gradient, 3 feature cards, dark footer
    ```
 
 Ralph workers can use the Read tool to view images, so they'll have full visual context.
-
-## Philosophy
-
-Each bead should be **self-contained** enough that Ralph can start working immediately without wasting iterations on exploration. But don't over-specify - Ralph should still have room to make implementation decisions.
-
-**Balance:**
-- ✓ Key files to modify and reference
-- ✓ Relevant patterns to follow
-- ✓ Clear acceptance criteria
-- ✗ Exhaustive file listings
-- ✗ Step-by-step implementation details
-- ✗ Every convention in the codebase
-
-## Handling Initial Context
-
-When the user provides initial context with the command:
-
-1. **Parse the initial idea** - Extract key information:
-   - What feature/task is being requested?
-   - Are there any constraints mentioned?
-   - Are there technology choices specified?
-   - Any files or locations mentioned?
-
-2. **Acknowledge what you understood** - Show the user what you extracted:
-   ```
-   I understand you want to:
-   - Add user authentication
-   - Use JWT tokens
-   - Need login/register endpoints
-
-   Let me ask some follow-up questions to fill in the gaps...
-   ```
-
-3. **Ask ONLY what's missing** - Don't re-ask things already specified:
-   - Focus on gaps and ambiguities
 
 ## Wizard Phases
 
@@ -105,7 +88,8 @@ When the user provides initial context with the command:
 
 1. Parse and acknowledge what was understood
 2. Use `AskUserQuestion` to fill in gaps only
-3. Ask targeted follow-ups based on what's missing, continue iterating the plan, refining, and asking follow up question until nothing in the plan is uncertain/unclear
+3. Ask targeted follow-ups based on what's missing
+4. Continue iterating until nothing is uncertain/unclear
 
 **Core questions to answer (skip if already provided in initial context):**
 - What is the goal? *(usually provided)*
@@ -121,8 +105,6 @@ When the user provides initial context with the command:
 - Let user provide freeform for open questions
 - Stop asking when implementation is clear enough
 - **Never re-ask what the user already specified**
-
-Continue asking follow-up questions based on answers until implementation details are clear.
 
 ### Phase 2: Explore
 
@@ -153,103 +135,203 @@ I found these relevant files:
 Is this correct? Any files I missed?
 ```
 
-### Phase 3: Decompose
+### Phase 3: Design
 
-Break the feature into granular beads:
+**Write the comprehensive feature specification.** This is your primary output.
 
-- Each bead should be completable in 5-15 iterations
-- Identify dependencies between beads
-- Order beads by dependency graph
-- Group parallelizable beads
+Do NOT output structured beads. Output a **design document** with all the detail bead-farmer needs to make decomposition decisions.
 
-### Phase 4: Specify
+### Phase 4: Delegate to Bead-Farmer
 
-For each bead, create a **rich description with sections**:
+After the specification is complete, invoke bead-farmer to decompose it:
+
+```
+Task(
+  subagent_type="bead-farmer",
+  description="Decompose feature specification into beads",
+  prompt="Decompose this comprehensive feature specification into atomic beads:
+
+<insert full specification document here>
+
+You decide:
+- How many beads and what granularity
+- Bead titles and descriptions
+- Dependency order
+- Epic structure if needed
+- Ralph spec for each bead
+- Which subset of context each bead needs
+
+Check for existing beads that overlap.
+Ensure each bead has enough context to execute independently."
+)
+```
+
+## Feature Specification Format
+
+Output your specification in this format:
 
 ```markdown
-## Task
-[Clear statement of what needs to be done]
+## Feature: <feature name>
 
-## Context
-[Why this task exists, how it fits into the larger feature]
+### Business Context
+<Why we're building this, user needs, what it unblocks, business requirements>
 
-## Key Files
-- `src/api/auth.ts` - Add new endpoint here
-- `src/middleware/jwt.ts` - Reference for token validation pattern
-- `src/models/User.ts` - User model with password field
+### Technical Approach
+<Architectural decisions with rationale - JWT vs sessions, bcrypt vs argon2, etc.>
+<Technology choices that are fixed vs flexible>
 
-## Patterns to Follow
-[Show 1-2 relevant code snippets from the codebase]
+### Codebase Findings
 
-Example from existing endpoint:
-\`\`\`typescript
-router.post('/login', validateBody(loginSchema), async (req, res) => {
-  // ... existing pattern
-});
-\`\`\`
+**Existing Patterns:**
+- <file:lines> - <what pattern to follow>
+- <relevant code snippets showing how similar things are done>
 
-## Acceptance Criteria
-- [ ] POST /api/auth/register creates new user
-- [ ] Returns 400 for invalid email format
-- [ ] Returns 409 if email already exists
-- [ ] All tests in tests/auth.test.ts pass
-- [ ] No lint errors
+**Key Files to Modify/Create:**
+- <file> - <what changes needed>
+- <file> (new) - <what this file will do>
 
-## Notes
-[Any edge cases, gotchas, or decisions left to Ralph]
+**Database/Infrastructure:**
+- <any schema changes, migrations, external services>
+
+### Constraints
+<Must-haves, patterns to follow, team preferences, library requirements>
+
+### Edge Cases
+<What happens when X? How to handle Y? Error scenarios>
+
+### Acceptance Criteria (Feature-Level)
+<Comprehensive success criteria - all of these must pass for feature to be complete>
+- User can do X
+- Tests pass: <specific test commands>
+- No lint errors
+- Build succeeds
+- Integration with Y works
+
+### User Requirements
+<Everything gathered from wizard conversation - preferences, decisions made>
+
+### Notes
+<Anything else relevant - known risks, future considerations, open questions>
 ```
 
-## Bead Creation
+## Example: Complete Specification
 
-Create beads with the rich description:
+```markdown
+## Feature: User Authentication System
 
-```bash
-bd create \
-  --title="Implement user registration endpoint" \
-  --type=feature \
-  --priority=2 \
-  --description="## Task
-Add POST /api/auth/register endpoint.
+### Business Context
+Users need to create accounts and securely log in. This is blocking
+the checkout feature which requires authenticated users. Users have
+requested "remember me" functionality for convenience.
 
-## Context
-Part of authentication feature. Users need to create accounts before logging in.
+### Technical Approach
+- JWT tokens stored in httpOnly cookies (not localStorage - security)
+- bcrypt for password hashing (already used in src/utils/crypto.ts)
+- Refresh token rotation for long sessions
+- Rate limiting on login attempts (use existing rateLimiter middleware)
 
-## Key Files
-- src/api/auth.ts - Add endpoint here
-- src/models/User.ts - User model
-- src/utils/password.ts - Password hashing (use bcrypt pattern)
+Rationale: Cookies > localStorage for security, bcrypt is already
+in the codebase so we maintain consistency.
 
-## Patterns to Follow
-Follow existing POST endpoint pattern in src/api/users.ts
+### Codebase Findings
 
-## Acceptance Criteria
-- POST /api/auth/register works
-- Validates email format
-- Hashes password before storing
-- Returns JWT on success
-- Tests pass: npm test -- --grep register
+**Existing Patterns:**
+- POST endpoints: `src/api/users.ts:45-78` (follow this exact pattern)
+  ```typescript
+  router.post('/users', validateBody(userSchema), async (req, res) => {
+    const user = await UserService.create(req.body);
+    res.status(201).json(user);
+  });
+  ```
+- Validation: `src/middleware/validate.ts` with Zod schemas
+- Error handling: `src/utils/errors.ts` ApiError class
+- Tests: Jest + supertest, see `tests/api/users.test.ts` for pattern
 
-## Notes
-- Use existing validateBody middleware
-- Email should be case-insensitive"
+**Key Files to Modify/Create:**
+- `src/api/auth.ts` (new) - Auth routes
+- `src/middleware/requireAuth.ts` (new) - JWT validation middleware
+- `src/models/User.ts` (modify) - Add password_hash field
+- `src/types/express.d.ts` (modify) - Add req.user type
+- `src/schemas/auth.ts` (new) - Zod schemas for login/register
 
-# Add ralph_spec
-bd comments <bead-id> --add "ralph_spec:
-completion_promise: BEAD COMPLETE
-max_iterations: 50
-acceptance_criteria:
-  - type: test
-    command: npm test -- --grep register
-  - type: lint
-    command: npm run lint"
+**Database:**
+- Users table exists, needs: password_hash, refresh_token columns
+- Migration pattern: see `src/migrations/001_create_users.ts`
+- Use existing db utility in `src/utils/db.ts`
 
-# Add dependencies
-bd dep add <child-bead> <parent-bead>
+### Constraints
+- Must use existing Zod validation pattern (no Joi, no manual)
+- Must use existing error handling (ApiError, not custom)
+- Email must be case-insensitive (lowercase before storing)
+- Password minimum 8 chars, must include number
+- All endpoints must have rate limiting
+- Follow existing commit convention (feat/fix/test prefixes)
+
+### Edge Cases
+- Email already exists → 409 Conflict with message "Email already registered"
+- Password too weak → 400 with specific message about requirements
+- Login fails → Generic "Invalid credentials" (no email enumeration)
+- Refresh token expired → 401, client must re-login
+- Rate limiting: 5 attempts per 15 minutes per IP → 429 with retry-after
+- Malformed JWT → 401 Unauthorized
+- User deleted but has valid JWT → 401 (check user exists)
+
+### Acceptance Criteria (Feature-Level)
+- User can register with email/password
+- User can login and receives JWT in httpOnly cookie
+- Protected routes reject unauthenticated requests with 401
+- Protected routes work with valid JWT
+- Refresh token rotation works (new refresh token on use)
+- Rate limiting prevents brute force (returns 429)
+- Password reset flow works (sends email, token valid 1hr)
+- All existing tests still pass (npm test)
+- New tests cover auth flows: register, login, protected routes, refresh
+- No lint errors (npm run lint)
+- Build succeeds (npm run build)
+
+### User Requirements
+- Password reset: YES (via email, using existing email service)
+- Email verification: NO (not needed for MVP)
+- OAuth: NO (future consideration)
+- Remember me: YES (longer refresh token - 30 days vs 1 day)
+
+### Notes
+- Email service already exists at src/services/email.ts
+- Consider adding login attempt logging for security audit later
+- Rate limiter is per-IP; consider per-user rate limiting for password reset
 ```
 
-## Example Sessions
+## What NOT to Include
 
-### Missing Context (Prompt User)
+**Do NOT output any of these (bead-farmer decides):**
+
+```markdown
+# WRONG - Don't structure as beads
+**Bead 1: Add JWT middleware**
+- Files: src/middleware/auth.ts
+- Acceptance criteria: ...
+
+**Bead 2: Implement registration**
+- Depends on: Bead 1
+- ...
+```
+
+```markdown
+# WRONG - Don't pre-determine granularity
+"This should be split into 4 beads..."
+"First bead should be..."
+```
+
+```markdown
+# WRONG - Don't add ralph specs
+ralph_spec:
+  completion_promise: BEAD COMPLETE
+  max_iterations: 50
+```
+
+Your job is specification. Bead-farmer's job is decomposition.
+
+## Missing Context (Prompt User)
 
 ```
 User: /god-ralph plan
@@ -264,105 +346,36 @@ Examples:
 - /god-ralph plan Refactor the API to use async/await instead of callbacks
 ```
 
-### Standard Flow (With Context)
-
-```
-User: /god-ralph plan Add JWT auth with email/password login and registration
-
-Wizard: I understand you want to:
-- Add authentication system
-- Use JWT tokens
-- Email/password login and registration
-
-Let me ask a few follow-up questions to fill in the gaps...
-
-[AskUserQuestion with 2 questions:]
-Q1: Do you need password reset functionality?
-Q2: Should users verify their email before logging in?
-
-User answers: Yes to reset, No to email verification
-
-Wizard: Got it. Let me explore your codebase...
-
-[Runs Glob and Grep to find relevant files]
-
-I found:
-- src/api/ contains your API routes
-- src/models/User.ts exists with email field
-- No existing auth middleware
-- src/utils/email.ts for sending emails
-- Tests use Jest with supertest
-
-Does this look right? Any files I missed?
-
-User: Looks good
-
-Wizard: Based on exploration, here are the beads I'll create:
-
----
-
-**Bead 1: Add JWT middleware**
-- Files: src/middleware/auth.ts (new), src/types/express.d.ts
-- Pattern: Follow src/middleware/logger.ts structure
-- Criteria: Middleware validates JWT, attaches user to req
-
-**Bead 2: Implement registration**
-- Files: src/api/auth.ts (new), src/models/User.ts
-- Pattern: Follow src/api/users.ts POST pattern
-- Depends on: Bead 1
-- Criteria: Creates user, returns JWT
-
-**Bead 3: Implement login**
-- Files: src/api/auth.ts
-- Pattern: Compare password with bcrypt
-- Depends on: Bead 1
-- Criteria: Returns JWT for valid credentials
-
-**Bead 4: Add password reset**
-- Files: src/api/auth.ts, src/utils/email.ts
-- Pattern: Use existing email utility
-- Depends on: Bead 2, Bead 3
-- Criteria: Sends reset email, token works
-
-Create these beads? [y/n]
-```
-
 ## Guidelines
 
-### What to Include in Context
+### What to Include in Specification
 
 **Do include:**
-- Specific file paths to modify
+- Specific file paths discovered
 - 1-2 code snippets showing patterns to follow
-- Key dependencies/imports needed
-- Existing test patterns
-- Non-obvious constraints
+- All constraints from user and codebase
+- Every edge case you can think of
+- Comprehensive acceptance criteria
+- Technical decisions with rationale
 
 **Don't include:**
-- Every file in the codebase
+- Bead structure or titles
+- Dependency chains
+- Granularity decisions
 - Step-by-step implementation
-- Full file contents
-- Generic coding advice
+- Ralph specs
 
-### Good Bead Granularity
-- "Add login endpoint with validation" ✓
-- "Implement authentication system" ✗ (too large)
-- "Fix typo in login error message" ✗ (too small)
+### Good Specification Depth
 
-### Acceptance Criteria
-- Specific, runnable commands
-- Clear pass/fail determination
-- Include both happy path and key edge cases
-
-## References
-
-- [BEAD_SPEC.md](../skills/god-ralph/references/BEAD_SPEC.md) - Ralph-ready bead format specification
-- [WORKFLOWS.md](../skills/god-ralph/references/WORKFLOWS.md) - Common workflow patterns
+The specification should be detailed enough that bead-farmer could:
+- Understand the full scope without asking questions
+- Make informed granularity decisions
+- Know which files relate to which concerns
+- Understand all constraints and edge cases
 
 ## Notes
 
-- The wizard creates beads but doesn't execute them
-- Use `/god-ralph start` to begin execution
-- Beads are stored via the standard `bd` CLI
-- Rich description gives Ralph context without over-constraining
-- Ralph can still explore and make implementation decisions
+- The wizard outputs a specification, not beads
+- Bead-farmer receives the specification and decomposes it
+- Use `/god-ralph start` to begin execution after beads are created
+- Specifications can be saved for reference if complex

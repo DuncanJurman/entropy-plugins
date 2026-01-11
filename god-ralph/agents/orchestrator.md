@@ -46,11 +46,54 @@ For each parallel group:
 git worktree add .worktrees/ralph-<bead-id> -b ralph/<bead-id>
 ```
 
-### Phase 4: Spawn Ralphs
+### Phase 4: Spawn Ralphs (with Worktree Isolation)
+
+**CRITICAL**: Each Ralph MUST run in its own isolated worktree. The `ensure-worktree.sh` PreToolUse hook handles this automatically when you spawn Ralph workers via the Task tool.
+
 For each bead in parallel group:
-1. Create state file at `.claude/god-ralph/ralph-session.json`
-2. Launch Ralph worker with bead context
-3. Stream output with prefix `[ralph:<bead-id>]`
+
+1. **Spawn Ralph worker via Task tool**
+   The `subagent_type="ralph-worker"` triggers automatic worktree creation:
+   ```
+   Task(
+     subagent_type="ralph-worker",
+     description="Ralph worker for <bead-id>",
+     prompt="You are a Ralph worker. Complete bead <bead-id>: <title>
+
+     <full bead spec with acceptance criteria>
+
+     When complete, output: <promise>BEAD COMPLETE</promise>"
+   )
+   ```
+
+2. **Hook automatically handles**:
+   - Creates worktree at `.worktrees/ralph-<bead-id>/`
+   - Creates branch `ralph/<bead-id>`
+   - Prepends worktree context to Ralph's prompt
+   - Creates session state file
+
+3. **Stream output with prefix** `[ralph:<bead-id>]`
+
+4. **Verify worktree was created**:
+   ```bash
+   ls -la .worktrees/  # Should show ralph-<bead-id> directories
+   ```
+
+**Note**: If the hook fails to create a worktree, Ralph will still spawn but will detect the issue and report it. Never proceed with parallel Ralphs if worktrees weren't created - this causes git lock conflicts.
+
+### Agent Type Dispatch
+
+The PreToolUse hook uses `subagent_type` to determine if a worktree is needed:
+
+| Agent Type | Creates Worktree | Use Case |
+|------------|------------------|----------|
+| `ralph-worker` | Yes | Code-writing bead completion |
+| `verification-ralph` | No | Post-merge verification |
+| `scribe` | No | CLAUDE.md updates |
+| `bead-farmer` | No | Bead creation/deduplication |
+| `general-purpose` | No | Default Claude agent |
+
+**Important**: Only use `subagent_type="ralph-worker"` for agents that will write code and need git branch isolation. Other agents run in the main repository context.
 
 ### Phase 5: Monitor & Merge
 When a Ralph completes (state file shows `status: completed`):
@@ -137,20 +180,55 @@ bd update <bead-id> --status=blocked
 ```
 
 ### Merge Conflict
+
+Route fix-beads through bead-farmer for proper validation:
+
 ```bash
 # Abort merge
 git merge --abort
+```
 
-# Create fix-bead
-bd create --title="Resolve merge conflict from beads-123" --priority=0 --type=bug
-bd dep add <new-bead> <conflicting-bead>
+```
+# Invoke bead-farmer to create fix-bead
+Task(
+  subagent_type="bead-farmer",
+  description="Create fix-bead for merge conflict",
+  prompt="Create a fix-bead for this merge conflict:
+
+Merge conflict while merging branch ralph/<bead-id> to main.
+
+Conflicting files:
+- <list of conflicting files>
+
+Original bead: <bead-id> '<bead-title>'
+
+Create a high-priority (P0) bug bead to resolve this conflict.
+Link it as a dependency of the original bead."
+)
 ```
 
 ### Verification Failure
-```bash
-# Create fix-bead with highest priority
-bd create --title="Fix verification failure after merge" --priority=0 --type=bug
-bd comments <new-bead> --add "Verification failed: <error details>"
+
+Route fix-beads through bead-farmer for proper validation:
+
+```
+Task(
+  subagent_type="bead-farmer",
+  description="Create fix-bead for verification failure",
+  prompt="Create a fix-bead for this verification failure:
+
+Verification failed after merging <bead-id>.
+
+Failed criteria:
+- <list of failed criteria>
+
+Merged beads: <list of merged beads>
+
+Error details:
+<error output/stack trace>
+
+Create a P0 bug bead and link to the failed bead."
+)
 ```
 
 ## Commands Reference
