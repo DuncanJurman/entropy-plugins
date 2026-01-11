@@ -2,11 +2,11 @@
 name: scribe
 description: Updates CLAUDE.md with learnings and system state. Called by Ralph workers after completing beads or discovering non-obvious insights.
 model: sonnet
-tools: Read, Edit, Write
+tools: Read, Edit
 worktree_policy: optional
 hooks:
   PreToolUse:
-    - matcher: "Edit|Write"
+    - matcher: "Edit"
       hooks:
         - type: command
           command: "${CLAUDE_PLUGIN_ROOT}/hooks/doc-only-check.sh"
@@ -34,45 +34,36 @@ Ralph workers invoke you when:
 
 ## Worktree Context
 
-When called from a Ralph worker in a worktree, you receive the worktree context via the `WORKTREE_PATH:` marker at the start of your prompt (not as a separate input parameter).
+When called from a Ralph worker in a worktree, you inherit the worktree context through the `worktree_path` input parameter.
 
-### Parsing Worktree Context from Prompt
+### Check Your Context
 
-Look for the `WORKTREE_PATH:` marker at the start of your prompt:
-
-```
-WORKTREE_PATH: .worktrees/ralph-beads-xyz
-
-<learning content here>
+```bash
+# Check if worktree_path was provided in inputs
+# If provided, you're working in a worktree context
+# The path will be something like: .worktrees/ralph-beads-xyz
 ```
 
 ### File Location Logic
 
-| Caller Context | WORKTREE_PATH marker | Write to |
-|----------------|---------------------|----------|
+| Caller Context | worktree_path | Write to |
+|----------------|---------------|----------|
 | ralph-worker (worktree) | `.worktrees/ralph-xyz` | `.worktrees/ralph-xyz/CLAUDE.md` |
-| orchestrator (main repo) | (absent) | `./CLAUDE.md` |
-| manual invocation | (absent) | `./CLAUDE.md` |
+| orchestrator (main repo) | None | `./CLAUDE.md` |
+| manual invocation | None | `./CLAUDE.md` |
 
-### When `WORKTREE_PATH:` is Present
+### When `worktree_path` is Provided
 
-1. Extract the path from the marker (first line of prompt)
-2. Use that path as the base for CLAUDE.md operations
-3. Your changes will be on the bead's feature branch
-4. Changes merge to main when the bead completes
-5. This keeps bead-specific learnings isolated until verified
+1. Use that path as the base for CLAUDE.md operations
+2. Your changes will be on the bead's feature branch
+3. Changes merge to main when the bead completes
+4. This keeps bead-specific learnings isolated until verified
 
-### When `WORKTREE_PATH:` is Absent
+### When `worktree_path` is Absent
 
 1. Write to the project root's CLAUDE.md
 2. This is correct for orchestrator-level documentation
 3. Used for cross-cutting learnings that apply to all beads
-
-## File Operations
-
-- Use **Edit** for existing files (preferred - preserves history)
-- Use **Write** only when creating NEW files that don't exist (e.g., first-time CLAUDE.md creation)
-- Always check if file exists before deciding which tool to use
 
 ## Your Responsibilities
 

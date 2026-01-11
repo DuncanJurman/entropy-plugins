@@ -45,17 +45,23 @@ echo "[god-ralph] Running Ralph on bead: $BEAD_ID"
 echo "[god-ralph] Title: $TITLE"
 ```
 
-## Session Initialization
-
-Note: The `ensure-worktree.sh` hook handles worktree creation automatically when the Task is launched.
+## Worktree Setup
 
 ```bash
-# Define worktree path (hook creates the actual worktree)
+# Create worktree
 WORKTREE_PATH=".worktrees/ralph-$BEAD_ID"
 BRANCH_NAME="ralph/$BEAD_ID"
 
-# Create spawn queue directory in main repo (NOT worktree)
-mkdir -p .claude/god-ralph/spawn-queue
+git worktree add "$WORKTREE_PATH" -b "$BRANCH_NAME" 2>/dev/null || {
+  echo "[god-ralph] Worktree already exists, reusing"
+}
+```
+
+## Session Initialization
+
+```bash
+# Create state directory in worktree
+mkdir -p "$WORKTREE_PATH/.claude/god-ralph"
 
 # Get ralph_spec from bead comments (temporary until schema supports it)
 RALPH_SPEC=$(bd comments "$BEAD_ID" --json | jq -r '.[] | select(.text | startswith("ralph_spec:")) | .text')
@@ -64,21 +70,21 @@ RALPH_SPEC=$(bd comments "$BEAD_ID" --json | jq -r '.[] | select(.text | startsw
 COMPLETION_PROMISE="BEAD COMPLETE"
 MAX_ITERATIONS=50
 
-# Write spawn queue file (ensure-worktree.sh hook reads this to create session)
-cat > ".claude/god-ralph/spawn-queue/$BEAD_ID.json" << EOF
+# Create session file
+cat > "$WORKTREE_PATH/.claude/god-ralph/ralph-session.json" << EOF
 {
   "bead_id": "$BEAD_ID",
   "title": "$TITLE",
-  "worktree_path": "$WORKTREE_PATH",
-  "worktree_policy": "required",
+  "iteration": 1,
   "max_iterations": $MAX_ITERATIONS,
   "completion_promise": "$COMPLETION_PROMISE",
-  "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  "worktree_path": "$WORKTREE_PATH",
+  "status": "running",
+  "started_at": "$(date -Iseconds)",
+  "prompt": "Complete the following bead:\n\nTitle: $TITLE\nDescription: $DESCRIPTION\n\nWork in the worktree at $WORKTREE_PATH.\nCommit your progress frequently.\nWhen ALL acceptance criteria are met, output: <promise>$COMPLETION_PROMISE</promise>"
 }
 EOF
 ```
-
-Note: The `ensure-worktree.sh` hook reads the spawn queue file and creates the per-bead session file at `.claude/god-ralph/sessions/$BEAD_ID.json` when the Task is launched.
 
 ## Ralph Launch
 
@@ -86,21 +92,20 @@ Launch Ralph worker using Task tool:
 
 ```
 Task(
-  subagent_type="ralph-worker",
-  prompt="BEAD_ID: $BEAD_ID
-WORKTREE_PATH: $WORKTREE_PATH
+  subagent_type="general-purpose",
+  prompt="You are a Ralph worker. Complete bead $BEAD_ID.
 
 Title: $TITLE
 Description: $DESCRIPTION
 
+Work in: $WORKTREE_PATH
 Branch: $BRANCH_NAME
 
-When ALL acceptance criteria are met, output: <promise>BEAD COMPLETE</promise>",
+Follow the ralph-worker agent guidelines.
+When complete, output: <promise>BEAD COMPLETE</promise>",
   description="Ralph worker for $BEAD_ID"
 )
 ```
-
-Note: The `ralph-worker` subagent type triggers the `ensure-worktree.sh` hook which sets up worktree isolation based on the spawn queue file.
 
 ## Arguments
 

@@ -49,12 +49,7 @@ for worktree in .worktrees/ralph-*; do
 
     # Note progress in bead
     BEAD_ID=$(basename "$worktree" | sed 's/ralph-//')
-    SESSION_FILE=".claude/god-ralph/sessions/$BEAD_ID.json"
-    if [[ -f "$SESSION_FILE" ]]; then
-      ITERATION=$(jq -r '.iteration' "$SESSION_FILE")
-    else
-      ITERATION="unknown"
-    fi
+    ITERATION=$(cat .claude/god-ralph/ralph-session.json | jq -r '.iteration')
     bd comments "$BEAD_ID" --add "Stopped at iteration $ITERATION. Branch: ralph/$BEAD_ID"
 
     cd -
@@ -69,8 +64,7 @@ If graceful stop doesn't work:
 ```bash
 # Force remove all state
 rm -f .claude/god-ralph/orchestrator-state.json
-rm -rf .claude/god-ralph/sessions
-rm -rf .claude/god-ralph/spawn-queue
+rm -f .claude/god-ralph/ralph-session.json
 
 # Clean up worktrees
 git worktree list | grep ralph | awk '{print $1}' | xargs -I {} git worktree remove {} --force

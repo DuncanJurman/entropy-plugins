@@ -50,10 +50,10 @@ Before launching orchestrator:
 mkdir -p .claude/god-ralph/logs
 
 # Initialize orchestrator state
-cat > .claude/god-ralph/orchestrator-state.json << EOF
+cat > .claude/god-ralph/orchestrator-state.json << 'EOF'
 {
   "status": "starting",
-  "started_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "started_at": "$(date -Iseconds)",
   "active_ralphs": [],
   "completed_beads": [],
   "failed_beads": [],
@@ -68,8 +68,8 @@ After user confirms, invoke the orchestrator agent using the Task tool:
 
 ```
 Task(
-  subagent_type="god-ralph-orchestrator",
-  prompt="Execute the orchestrator workflow as defined in agents/orchestrator.md.
+  subagent_type="general-purpose",
+  prompt="You are the god-ralph orchestrator. Execute the orchestrator workflow as defined in agents/orchestrator.md.
 
   Start by:
   1. Reading bd ready --json to find ready beads

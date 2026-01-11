@@ -69,8 +69,8 @@ Check status of a specific bead:
 
 ```bash
 # Show Ralph session for specific bead
-if [[ -f ".worktrees/ralph-beads-abc/.claude/god-ralph/sessions/beads-abc.json" ]]; then
-  cat ".worktrees/ralph-beads-abc/.claude/god-ralph/sessions/beads-abc.json" | jq '.'
+if [[ -f ".worktrees/ralph-beads-abc/.claude/god-ralph/ralph-session.json" ]]; then
+  cat ".worktrees/ralph-beads-abc/.claude/god-ralph/ralph-session.json" | jq '.'
 fi
 ```
 
