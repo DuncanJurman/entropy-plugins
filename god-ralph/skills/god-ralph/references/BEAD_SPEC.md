@@ -208,3 +208,199 @@ Feature Epic (beads-001) [type: epic]
     │
 Epic depends on all tasks (reversed from normal)
 ```
+
+## Canonical Bead-Farmer Invocation
+
+This section defines the standardized patterns for invoking bead-farmer from different agents in the god-ralph ecosystem.
+
+**Key principle:** All bead-farmer invocations use `worktree_policy="none"` because bead-farmer operates on the main repository, not in worktrees.
+
+### From Ralph Worker (Discovered Issue)
+
+When a Ralph worker discovers a bug or issue unrelated to its current task, it should file it via bead-farmer and continue working.
+
+```python
+Task(
+    subagent_type="bead-farmer",
+    description="Create bead for discovered bug",
+    prompt="""
+Validate and create a bead for this discovered issue:
+
+BUG: [description]
+
+Location: [file:line]
+Discovered while working on [current-bead-id].
+
+[error details or stack trace]
+
+Expected: [expected behavior]
+Actual: [actual behavior]
+
+Check for duplicates and recent fixes before creating.
+This is non-blocking - Ralph is continuing its work.
+    """,
+    inputs={
+        "worktree_policy": "none"  # bead-farmer works in main repo
+    }
+)
+```
+
+**Example:**
+```python
+Task(
+    subagent_type="bead-farmer",
+    description="Create bead for N+1 query issue",
+    prompt="""
+Validate and create a bead for this discovered issue:
+
+BUG: N+1 query in User model causing slow page loads
+
+Location: src/models/User.ts:47
+Discovered while working on beads-settings-api.
+
+When fetching users with their posts, each post triggers
+a separate query for the author.
+
+Expected: Single query with JOIN
+Actual: N+1 queries (visible in debug logs)
+
+Check for duplicates and recent fixes before creating.
+This is non-blocking - Ralph is continuing its work.
+    """,
+    inputs={
+        "worktree_policy": "none"
+    }
+)
+```
+
+### From Orchestrator (Merge Conflict)
+
+When the orchestrator encounters a merge conflict while integrating a Ralph worker's changes, it creates a fix-bead.
+
+```python
+Task(
+    subagent_type="bead-farmer",
+    description="Create fix-bead for merge conflict",
+    prompt="""
+Create a fix-bead for this merge conflict:
+
+Merge conflict while merging branch ralph/[bead-id] to main.
+
+Conflicting files:
+- [file1]
+- [file2]
+
+Original bead: [bead-id] '[title]'
+
+Create a high-priority (P0) bug bead to resolve this conflict.
+Link it as a dependency of the original bead.
+    """,
+    inputs={
+        "worktree_policy": "none"
+    }
+)
+```
+
+**Example:**
+```python
+Task(
+    subagent_type="bead-farmer",
+    description="Create fix-bead for merge conflict",
+    prompt="""
+Create a fix-bead for this merge conflict:
+
+Merge conflict while merging branch ralph/beads-user-api to main.
+
+Conflicting files:
+- src/routes/index.ts
+- src/middleware/auth.ts
+
+Original bead: beads-user-api 'Add user API endpoint'
+
+Create a high-priority (P0) bug bead to resolve this conflict.
+Link it as a dependency of the original bead.
+    """,
+    inputs={
+        "worktree_policy": "none"
+    }
+)
+```
+
+### From Verification Agent (Test Failure)
+
+When post-merge verification fails, the verification agent creates a fix-bead to address the regression.
+
+```python
+Task(
+    subagent_type="bead-farmer",
+    description="Create fix-bead for verification failure",
+    prompt="""
+Create a fix-bead for this verification failure:
+
+Verification failed after merging [bead-id].
+
+Failed criteria:
+- [criterion description]
+
+Stack trace:
+[stack trace]
+
+Suggested fix: [suggestion]
+
+Create a P0 bug bead and link to [original-bead-id].
+    """,
+    inputs={
+        "worktree_policy": "none"
+    }
+)
+```
+
+**Example:**
+```python
+Task(
+    subagent_type="bead-farmer",
+    description="Create fix-bead for verification failure",
+    prompt="""
+Create a fix-bead for this verification failure:
+
+Verification failed after merging beads-settings-api.
+
+Failed criteria:
+- type: test
+  command: "npm test"
+  exit_code: 1
+
+Stack trace:
+FAIL src/api/settings.test.ts
+  Settings API
+    ✓ GET /api/settings returns 200
+    ✗ POST /api/settings validates input
+      TypeError: Cannot read property 'validate' of undefined
+        at SettingsController.update (src/api/settings.ts:34)
+
+Suggested fix: Import SettingsSchema at top of settings.ts
+
+Create a P0 bug bead and link to beads-settings-api.
+    """,
+    inputs={
+        "worktree_policy": "none"
+    }
+)
+```
+
+### Invocation Guidelines
+
+| Scenario | Priority | Blocking? | Dependencies |
+|----------|----------|-----------|--------------|
+| Discovered bug (unrelated) | P2-P3 | No | None |
+| Discovered bug (blocks current) | P1 | Yes | Current bead |
+| Merge conflict | P0 | Yes | Original bead |
+| Verification failure | P0 | Yes | Original bead |
+
+**Best practices:**
+1. Always include `worktree_policy="none"` in inputs
+2. Provide clear context about where the issue was discovered
+3. Include relevant file paths and line numbers
+4. For bugs, include expected vs actual behavior
+5. For failures, include stack traces when available
+6. Let bead-farmer handle deduplication - don't skip filing
