@@ -249,27 +249,28 @@ Verify with 'pwd' and 'git branch --show-current'.
 
 "
 
-# Prepend worktree context to the original prompt
+# Prepend worktree context to the original prompt (keep as raw string)
 ENHANCED_PROMPT="${WORKTREE_CONTEXT}${PROMPT}"
-
-# Escape the prompt for JSON
-ESCAPED_PROMPT=$(echo "$ENHANCED_PROMPT" | jq -Rs '.')
 
 # =============================================================================
 # RETURN UPDATED INPUT
 # =============================================================================
+# Use jq --arg for safe JSON construction with single escape at output time.
+# This avoids double-escaping issues that occur with heredocs and pre-escaped strings.
 
-cat << EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "allow",
-    "updatedInput": {
-      "prompt": $ESCAPED_PROMPT,
-      "bead_id": "$BEAD_ID",
-      "worktree_path": "$PROJECT_ROOT/$WORKTREE_PATH",
-      "working_directory": "$PROJECT_ROOT/$WORKTREE_PATH"
+jq -n \
+  --arg prompt "$ENHANCED_PROMPT" \
+  --arg bead_id "$BEAD_ID" \
+  --arg worktree_path "$PROJECT_ROOT/$WORKTREE_PATH" \
+  '{
+    "hookSpecificOutput": {
+      "hookEventName": "PreToolUse",
+      "permissionDecision": "allow",
+      "updatedInput": {
+        "prompt": $prompt,
+        "bead_id": $bead_id,
+        "worktree_path": $worktree_path,
+        "working_directory": $worktree_path
+      }
     }
-  }
-}
-EOF
+  }'
