@@ -19,6 +19,16 @@
 
 set -euo pipefail
 
+# Cleanup on error - will be set later when WORKTREE_PATH is known
+WORKTREE_PATH=""  # Initialize empty, will be set during worktree creation
+cleanup_on_error() {
+    if [[ -n "$WORKTREE_PATH" ]] && [[ -d "$WORKTREE_PATH" ]]; then
+        log_msg "Cleaning up failed worktree: $WORKTREE_PATH" 2>/dev/null || true
+        git worktree remove --force "$WORKTREE_PATH" 2>/dev/null || rm -rf "$WORKTREE_PATH"
+    fi
+}
+trap cleanup_on_error ERR
+
 # Read hook input from stdin
 HOOK_INPUT=$(cat)
 
@@ -157,17 +167,25 @@ mkdir -p "$(dirname "$WORKTREE_PATH")"
 if [[ -d "$WORKTREE_PATH" ]]; then
     log_msg "Worktree already exists, reusing: $WORKTREE_PATH"
 else
-    # Create the worktree
-    # Try with new branch first, then existing branch
+    # Create the worktree - capture error output for diagnostics
+    WORKTREE_ERROR=""
     if git worktree add "$WORKTREE_PATH" -b "$BRANCH_NAME" >>"$LOG_FILE" 2>&1; then
         log_msg "Created worktree with new branch: $BRANCH_NAME"
     elif git worktree add "$WORKTREE_PATH" "$BRANCH_NAME" >>"$LOG_FILE" 2>&1; then
         log_msg "Created worktree with existing branch: $BRANCH_NAME"
     else
         log_msg "ERROR: Failed to create worktree"
-        # Allow the Task to proceed anyway, Ralph will detect the issue
-        echo '{"hookSpecificOutput": {"permissionDecision": "allow"}}'
-        exit 0
+        # Capture error details for diagnostic output
+        WORKTREE_ERROR=$(git worktree add "$WORKTREE_PATH" -b "$BRANCH_NAME" 2>&1 || true)
+        cat << EOF
+{
+  "hookSpecificOutput": {
+    "permissionDecision": "deny",
+    "reason": "Failed to create worktree for bead $BEAD_ID: $WORKTREE_ERROR"
+  }
+}
+EOF
+        exit 2
     fi
 fi
 
