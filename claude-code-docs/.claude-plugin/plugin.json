@@ -1,0 +1,19 @@
+{
+  "name": "claude-code-docs",
+  "version": "1.0.0",
+  "description": "Claude Code configuration reference: hooks, skills, plugins, subagents, MCP, settings, and memory management. Model-invoked skills provide on-demand documentation.",
+  "author": {
+    "name": "Entropy Plugins"
+  },
+  "keywords": [
+    "documentation",
+    "reference",
+    "hooks",
+    "skills",
+    "plugins",
+    "subagents",
+    "mcp",
+    "settings",
+    "configuration"
+  ]
+}

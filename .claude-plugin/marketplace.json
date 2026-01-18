@@ -1,10 +1,11 @@
 {
-  "name": "entropy-marketplace",
+  "name": "entropy-plugins",
   "owner": {
-    "name": "Duncan Jurman"
+    "name": "Entropy Plugins"
   },
   "metadata": {
-    "description": "Claude Code plugin marketplace by Duncan Jurman"
+    "description": "Claude Code configuration documentation and reference skills",
+    "version": "1.0.0"
   },
   "plugins": [
     {
@@ -16,6 +17,14 @@
       "name": "god-ralph",
       "source": "./god-ralph",
       "description": "Autonomous development orchestrator combining ephemeral Ralph workers with Beads task tracking"
+    },    
+    {
+      "name": "claude-code-docs",
+      "source": "./claude-code-docs",
+      "description": "Claude Code configuration reference: hooks, skills, plugins, subagents, MCP, settings, and memory management"
     }
   ]
 }
+    
+  
+
