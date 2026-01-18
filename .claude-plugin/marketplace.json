@@ -19,6 +19,11 @@
       "description": "Autonomous development orchestrator combining ephemeral Ralph workers with Beads task tracking"
     },    
     {
+      "name": "ralph-claudex",
+      "source": "./ralph-claudex",
+      "description": "Ralph + Codex MCP orchestration plugin with worktree isolation and verification gating"
+    },
+    {
       "name": "claude-code-docs",
       "source": "./claude-code-docs",
       "description": "Claude Code configuration reference: hooks, skills, plugins, subagents, MCP, settings, and memory management"
@@ -27,4 +32,3 @@
 }
     
   
-

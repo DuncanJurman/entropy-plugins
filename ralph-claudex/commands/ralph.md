@@ -1,0 +1,151 @@
+---
+description: Execute beads with ralph-claudex workers delegated to Codex via MCP
+---
+
+# /ralph-claudex:ralph
+
+Main-thread orchestrator for parallel bead execution using ralph-claudex workers and Codex delegation. Do NOT spawn the orchestrator as a subagent.
+
+## Subcommands
+
+| Command | Description |
+|---------|-------------|
+| `/ralph-claudex:ralph` | Show current execution status |
+| `/ralph-claudex:ralph start [--parallelism N] [--dry-run] [--filter PATTERN]` | Start orchestrator |
+| `/ralph-claudex:ralph <bead-id>` | Run a single bead |
+| `/ralph-claudex:ralph stop` | Stop gracefully |
+| `/ralph-claudex:ralph resume` | Resume from existing state |
+| `/ralph-claudex:ralph health` | Health check |
+| `/ralph-claudex:ralph gc` | Clean orphaned worktrees |
+| `/ralph-claudex:ralph recover <bead-id>` | Repair a specific bead |
+| `/ralph-claudex:ralph unlock [--force]` | Clear stale locks |
+
+## Orchestrator invariants
+
+- Runs in main thread.
+- Never edits code in bead worktrees.
+- Uses queue files + Task to spawn `god-ralph-worker`.
+- Serializes rebase → verify → merge with a merge lock.
+
+## Spawn flow
+
+1. Claim bead: `bd update <bead_id> --status in_progress`
+2. Write queue file: `.claude/state/god-ralph/queue/<bead_id>.json`
+3. Spawn worker:
+
+### Queue file schema (required)
+
+`ensure-worktree.sh` fails closed if required fields are missing or invalid. The queue file must include `worktree_policy` and `spawn_mode` with valid values.
+
+Required fields:
+- `worktree_path` (string; relative or absolute)
+- `worktree_policy` (string; one of `required|optional|none`)
+- `base_ref` (string; default `main`)
+- `spawn_mode` (string; `new|resume|restart|repair`)
+- `max_iterations` (number)
+- `completion_promise` (string)
+
+Recommended fields:
+- `codex.model` (string)
+- `codex.model_reasoning_effort` (string)
+- `bead_spec` (object; snapshot of bead spec used for this run)
+
+Example:
+```json
+{
+  "worktree_path": ".worktrees/ralph-issue-5oj",
+  "worktree_policy": "required",
+  "base_ref": "main",
+  "spawn_mode": "new",
+  "max_iterations": 50,
+  "completion_promise": "BEAD COMPLETE",
+  "codex": {
+    "model": "gpt-5.2-codex",
+    "model_reasoning_effort": "high"
+  },
+  "bead_spec": {
+    "bead_id": "issue-5oj",
+    "title": "Add settings page",
+    "description": "Implement settings page…",
+    "ralph_spec": {
+      "impact_paths": ["src/settings/**"],
+      "acceptance_criteria": [
+        { "type": "test", "severity": "required", "command": "npm test" },
+        { "type": "ui", "severity": "required", "instructions": "Verify settings save persists after reload." }
+      ]
+    }
+  }
+}
+```
+
+```
+Task(
+  subagent_type="god-ralph-worker",
+  description="God-Ralph worker for <bead-id>",
+  prompt="""
+BEAD_ID: <bead-id>
+WORKTREE_PATH: .worktrees/ralph-<bead-id>
+SESSION_FILE: .claude/state/god-ralph/sessions/<bead-id>.json
+
+## Bead Spec
+<bd show <bead-id> --json>
+
+## Instructions
+Complete this bead. Use Codex MCP to implement changes in the worktree.
+Signal completion with: <promise>BEAD COMPLETE</promise>
+"""
+)
+```
+
+## Integration (rebase → verify → merge)
+
+When a session is `worker_complete`:
+
+1. Acquire merge lock (`.claude/state/god-ralph/locks/merge.lock`).
+2. Sync main:
+   - `git fetch origin main`
+   - `git checkout main`
+   - `git merge --ff-only origin/main`
+3. Rebase bead branch:
+   - `git checkout ralph/<bead-id>`
+   - `git rebase main`
+4. If any UI criteria target Vercel preview, push rebased branch:
+   - `git push origin ralph/<bead-id> --force-with-lease`
+5. Spawn verifier:
+
+```
+Task(
+  subagent_type="god-ralph-verifier",
+  description="Verify bead <bead-id>",
+  prompt="""
+BEAD_ID: <bead-id>
+WORKTREE_PATH: <absolute worktree path>
+SESSION_FILE: <absolute session path>
+ARTIFACT_ROOT: <project>/.claude/state/god-ralph/artifacts
+
+Acceptance criteria:
+<criteria list>
+"""
+)
+```
+
+6. On verification pass:
+   - Mark session `verified_passed`.
+   - `git checkout main`
+   - `git merge --ff-only ralph/<bead-id>`
+   - `git push origin main` (required default).
+   - `bd close <bead-id>`.
+   - Mark session `merged` and clean worktree.
+7. On verification fail:
+   - Mark session `verified_failed`.
+   - Add bead comment with failure summary + artifact paths.
+   - Re-queue with `spawn_mode=resume` (escalate to `restart` after N failures).
+
+## Health check
+
+Run `${CLAUDE_PLUGIN_ROOT}/scripts/ralph-health-check.sh` and surface issues.
+
+## Notes
+
+- Codex autonomy is enforced by plugin hooks: `sandbox=danger-full-access`, `approval-policy=never`, and `cwd` rewritten to the bead worktree.
+- UI criteria must produce screenshots under `.claude/state/god-ralph/artifacts/<bead_id>/ui/` when passing.

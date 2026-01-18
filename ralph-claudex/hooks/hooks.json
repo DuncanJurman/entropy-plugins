@@ -1,0 +1,49 @@
+{
+  "description": "God-Ralph worktree and Codex guardrails",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/bash-guardrail-pretooluse.sh",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/ensure-worktree.sh",
+            "timeout": 60
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__codex__codex|mcp__codex__codex-reply",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/codex-guardrail-pretooluse.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "mcp__codex__codex",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/codex-capture-threadid-posttooluse.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
