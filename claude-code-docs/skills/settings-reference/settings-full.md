@@ -395,8 +395,10 @@ Plugin-related settings in `settings.json`:
   },
   "extraKnownMarketplaces": {
     "acme-tools": {
-      "source": "github",
-      "repo": "acme-corp/claude-plugins"
+      "source": {
+        "source": "github",
+        "repo": "acme-corp/claude-plugins"
+      }
     }
   }
 }
@@ -456,11 +458,13 @@ Defines additional marketplaces that should be made available for the repository
 }
 ```
 
-**Marketplace source types**:
+**Marketplace source types** (for `extraKnownMarketplaces`):
 
 * `github`: GitHub repository (uses `repo`)
 * `git`: Any git URL (uses `url`)
 * `directory`: Local filesystem path (uses `path`, for development only)
+
+Note: `extraKnownMarketplaces` supports these 3 source types. `strictKnownMarketplaces` (managed settings only) supports 6 types including `url`, `npm`, and `file`.
 
 #### `strictKnownMarketplaces`
 
@@ -517,6 +521,8 @@ Fields: `url` (required), `ref` (optional: branch/tag/SHA), `path` (optional: su
 ```
 
 Fields: `url` (required), `headers` (optional: HTTP headers for authenticated access)
+
+**Important**: URL-based marketplaces only download the marketplace.json file. They do not download plugin files from the server. Plugins in URL-based marketplaces must use external sources (GitHub, npm, or git URLs) rather than relative paths. For plugins with relative paths, use a Git-based marketplace instead.
 
 4. **NPM packages**:
 

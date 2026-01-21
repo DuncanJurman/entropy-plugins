@@ -241,6 +241,22 @@ For plugins in the same repository:
 }
 ```
 
+### URL-based marketplaces
+
+For marketplaces hosted at a URL:
+
+```json  theme={null}
+{
+  "name": "url-plugin",
+  "source": {
+    "source": "url",
+    "url": "https://plugins.example.com/marketplace.json"
+  }
+}
+```
+
+**Important**: URL-based marketplaces only download the marketplace.json file. They do not download plugin files from the server. Plugins in URL-based marketplaces must use external sources (GitHub, npm, or git URLs) rather than relative paths. For plugins with relative paths, use a Git-based marketplace instead.
+
 ### Advanced plugin entries
 
 This example shows a plugin entry using many of the optional fields, including custom paths for commands, agents, hooks, and MCP servers:
