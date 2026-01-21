@@ -4,6 +4,21 @@ Use this template structure when creating implementation plans. All sections are
 
 ---
 
+## Contents
+- Plan Title
+- Overview
+- Context
+- Exploration Findings
+- Design Decisions
+- Implementation
+- Files Summary
+- Verification
+- Resources
+- Open Questions (Optional)
+- Appendix
+- IMPORTANT (Handoff Test) IMPORTANT
+- Self-Containment Checklist
+
 # [Plan Title]
 
 > Auto-generated: [timestamp]

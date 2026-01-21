@@ -4,6 +4,12 @@ Use this guide to ensure thorough requirements gathering during the planning pro
 
 ---
 
+## Contents
+- The Clarification Loop
+- Question Categories
+- Zero Uncertainty Checklist
+- Asking Good Questions
+
 ## The Clarification Loop
 
 Planning is not linear. Each answer reveals new questions. Continue until zero uncertainty.
