@@ -27,6 +27,11 @@
       "name": "claude-code-docs",
       "source": "./claude-code-docs",
       "description": "Claude Code configuration reference: hooks, skills, plugins, subagents, MCP, settings, and memory management"
+    },
+    {
+      "name": "create-plan",
+      "source": "./create-plan",
+      "description": "Iterative planning skill that explores codebases, researches best practices, and creates comprehensive self-contained implementation plans"
     }
   ]
 }
