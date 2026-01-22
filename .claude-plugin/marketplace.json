@@ -32,6 +32,11 @@
       "name": "create-plan",
       "source": "./create-plan",
       "description": "Iterative planning skill that explores codebases, researches best practices, and creates comprehensive self-contained implementation plans"
+    },
+    {
+      "name": "bead-pipeline",
+      "source": "./bead-pipeline",
+      "description": "Automated pipeline for decomposing plans into validated beads with two validation passes for multi-agent execution"
     }
   ]
 }
