@@ -1,0 +1,9 @@
+{
+  "name": "bead-pipeline",
+  "version": "1.0.0",
+  "description": "Automated pipeline for decomposing plans into validated beads. Chains decomposition with two validation passes for quality assurance.",
+  "author": {
+    "name": "Entropy"
+  },
+  "keywords": ["beads", "planning", "decomposition", "validation", "pipeline", "multi-agent"]
+}
