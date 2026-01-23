@@ -20,8 +20,8 @@ Copy this checklist and track progress:
 
 ```
 Planning Progress:
-- [ ] Read `references/plan-template.md`
-- [ ] Read `references/clarification-guide.md`
+- [ ] Read [plan-template.md](references/plan-template.md)
+- [ ] Read [clarification-guide.md](references/clarification-guide.md)
 - [ ] Explore codebase (or state why not)
 - [ ] Clarification rounds 1–3 complete (unless user opts out)
 - [ ] Options presented (if multiple viable approaches)
@@ -29,7 +29,7 @@ Planning Progress:
 - [ ] Plan saved to `.plans/`
 ```
 
-Read `references/plan-template.md` and `references/clarification-guide.md` before asking the first clarification question.
+Read [plan-template.md](references/plan-template.md) and [clarification-guide.md](references/clarification-guide.md) before asking the first clarification question.
 
 ## Phase 1: Input Gathering
 
@@ -130,7 +130,7 @@ Wait for user selection before proceeding.
 
 ## Phase 5: Plan Document Generation
 
-Create the plan following the template in `references/plan-template.md`.
+Create the plan following the template in [plan-template.md](references/plan-template.md).
 
 **Critical requirements:**
 - Read the template before writing the plan.

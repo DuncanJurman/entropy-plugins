@@ -4,7 +4,7 @@ description: Create a comprehensive implementation plan with codebase exploratio
 
 # Create Plan
 
-Before responding, read `skills/create-plan/SKILL.md` and `skills/create-plan/references/plan-template.md`.
+Before responding, read [SKILL.md](skills/create-plan/SKILL.md) and [plan-template.md](skills/create-plan/references/plan-template.md).
 
 Use the create-plan skill to create a comprehensive implementation plan for: $ARGUMENTS
 
